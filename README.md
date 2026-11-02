@@ -27,3 +27,8 @@ The dashboard includes **Enrich website contacts** and a field for a deployed HT
 4. The dashboard checks up to 10 business websites per run. It does not automatically scrape social platforms or search engines.
 
 **Deployment security:** This Worker is a prototype. It must not be made broadly available as a public API without authentication, per-user rate limiting, abuse monitoring, and stronger SSRF/network egress protection. It avoids obvious local/private addresses and redirects, checks robots.txt, and limits page sizes, but these are not sufficient for a hardened public crawler. It does not verify ownership of email addresses. Public website findings are temporary browser-session data and are included in CSV exports.
+
+## Secure Worker configuration
+Set `API_TOKEN` as a Cloudflare Worker secret using `wrangler secret put API_TOKEN` (use a strong randomly generated value). Set `ALLOWED_ORIGIN` as a Worker environment variable matching the exact HTTPS origin of your GitHub Pages site (for example `https://jschop44.github.io`). The browser dashboard has a session-only API token field; enter the secret when using enrichment. **Do not commit this token to GitHub or expose the Worker publicly without authentication.**
+
+The current Worker token check is an initial access gate, **not production-grade security**. Add per-client quotas, logging, rate limiting, request timeouts, response-size enforcement during streaming, and stricter DNS/IP egress protections before production deployment. Restrict use to websites that permit automated access. The Worker does not scrape social media profiles or establish ownership of an email address.
