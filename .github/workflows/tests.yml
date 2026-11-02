@@ -11,6 +11,17 @@ jobs:
         with:
           node-version: '22'
       - run: node --check backend/server.js
+      - name: Validate frontend JavaScript syntax
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync,writeFileSync} from 'node:fs';
+          import {execFileSync} from 'node:child_process';
+          const html=readFileSync('index.html','utf8');
+          const script=html.match(/<script>([\\s\\S]*?)<\\/script>/)?.[1];
+          if(!script)throw Error('Frontend script missing');
+          writeFileSync('/tmp/leadflow-frontend.cjs',script);
+          execFileSync('node',['--check','/tmp/leadflow-frontend.cjs'],{stdio:'inherit'});
+          NODE
       - run: node --test worker/test/*.test.mjs backend/test/*.test.mjs
       - name: Live API discovery test (non-blocking external dependency)
         continue-on-error: true
