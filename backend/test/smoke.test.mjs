@@ -1,0 +1,8 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {spawn} from 'node:child_process';
+const port=19000+Math.floor(Math.random()*1000);
+const child=spawn(process.execPath,['backend/server.js'],{env:{...process.env,PORT:String(port),API_TOKEN:'test-token',ALLOWED_ORIGIN:'https://leadflow-tp57.onrender.com'},stdio:'pipe'});
+const base='http://127.0.0.1:'+port;
+async function ready(){for(let i=0;i<35;i++){try{const r=await fetch(base+'/health');if(r.ok)return}catch{}await new Promise(r=>setTimeout(r,100))}throw Error('Server did not start')}
+test('backend smoke and authorization',async()=>{try{await ready();const health=await(await fetch(base+'/health')).json();assert.equal(health.status,'ok');const unauthorized=await fetch(base+'/enrich',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({website:'https://example.com'})});assert.equal(unauthorized.status,401);const draft=await fetch(base+'/draft',{method:'POST',headers:{'content-type':'application/json','x-leadflow-token':'test-token'},body:JSON.stringify({business:'Sample Co',service:'Website help',sender:'Sender Inc, 1 Main St',unsubscribe:'Reply unsubscribe'})});assert.equal(draft.status,200);const payload=await draft.json();assert.equal(payload.sendingEnabled,false);assert.equal(payload.followUps.length,2);const invalid=await fetch(base+'/search',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({area:'',niche:'Financial advisors'})});assert.equal(invalid.status,400)}finally{child.kill()}});
