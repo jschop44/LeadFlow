@@ -17,3 +17,13 @@ Enter a US city or state and click **Find businesses**. Nominatim geocodes the l
 
 ## Next phase
 Add backend storage, authenticated accounts, permitted lead providers, email OAuth/SMTP integration, unsubscribe and suppression handling, rate limits, reply detection and stop-on-reply follow-up scheduling. Never put email credentials in client-side code.
+
+## Website enrichment (optional backend)
+The dashboard includes **Enrich website contacts** and a field for a deployed HTTPS Worker URL. The backend is in `worker/src/index.js`, with configuration in `worker/wrangler.toml`.
+
+1. Create a free Cloudflare account and install Wrangler (`npm install -g wrangler`).
+2. From the `worker` directory, run `wrangler login` and `wrangler deploy`.
+3. Paste the resulting HTTPS `workers.dev` URL into the dashboard and click **Enrich website contacts** after a lead search.
+4. The dashboard checks up to 10 business websites per run. It does not automatically scrape social platforms or search engines.
+
+**Deployment security:** This Worker is a prototype. It must not be made broadly available as a public API without authentication, per-user rate limiting, abuse monitoring, and stronger SSRF/network egress protection. It avoids obvious local/private addresses and redirects, checks robots.txt, and limits page sizes, but these are not sufficient for a hardened public crawler. It does not verify ownership of email addresses. Public website findings are temporary browser-session data and are included in CSV exports.
