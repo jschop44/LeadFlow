@@ -6,11 +6,11 @@ Free-first B2B business discovery dashboard. Defaults: **Wealth → Financial ad
 Open `index.html` in a modern browser or serve it as a static site (for example with GitHub Pages). No build step, API key, or paid hosting is required.
 
 ## Live discovery
-Enter a US city or state and click **Find businesses**. Nominatim geocodes the location and Overpass searches OpenStreetMap business listings. State-wide queries intentionally search a central area rather than exhausting public services. Nationwide is a target-market default, **not** a nationwide full-database scan. Results depend on OpenStreetMap coverage; the tool does not invent leads or contact details. Export CSV, filter and locally save lead identifiers.
+Enter a US city or state and click **Find businesses**. Nominatim geocodes the location and Overpass searches OpenStreetMap business listings. State-wide queries intentionally search a central area rather than exhausting public services. Nationwide is a target-market default, **not** a nationwide full-database scan. Results depend on OpenStreetMap coverage; the tool does not invent leads or contact details. Export CSV including public contact fields, filter and locally save lead identifiers. Published owner name, owner email (where explicitly tagged), company email, and LinkedIn/Facebook/Instagram/X/YouTube URLs are extracted from OpenStreetMap tags when available. Each lead has a contact-research search link for manual verification; this does not automatically scrape search engines, social profiles, or websites.
 
 ## Important limitations
 - Some niche tag mappings are broad approximations; inspect results before outreach.
-- This initial version does **not** send emails, schedule follow-ups, verify email addresses, or provide CRM persistence across devices.
+- Contact enrichment is limited to published OpenStreetMap tags. External search links are manual research aids, not verified automated crawling. Browser CORS, platform restrictions, and privacy laws prevent universal internet scraping.\n- This initial version does **not** send emails, schedule follow-ups, verify email addresses, or provide CRM persistence across devices.
 - Free public Overpass/Nominatim instances have rate limits, availability limits and usage policies. For production scale, use a licensed business data provider and server-side caching.
 - Scores represent listing completeness only, not conversion probability.
 - Review CAN-SPAM, opt-out, provider policies and privacy requirements before enabling any future outreach.
