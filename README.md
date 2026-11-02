@@ -32,3 +32,14 @@ The dashboard includes **Enrich website contacts** and a field for a deployed HT
 Set `API_TOKEN` as a Cloudflare Worker secret using `wrangler secret put API_TOKEN` (use a strong randomly generated value). Set `ALLOWED_ORIGIN` as a Worker environment variable matching the exact HTTPS origin of your GitHub Pages site (for example `https://jschop44.github.io`). The browser dashboard has a session-only API token field; enter the secret when using enrichment. **Do not commit this token to GitHub or expose the Worker publicly without authentication.**
 
 The current Worker token check is an initial access gate, **not production-grade security**. Add per-client quotas, logging, rate limiting, request timeouts, response-size enforcement during streaming, and stricter DNS/IP egress protections before production deployment. Restrict use to websites that permit automated access. The Worker does not scrape social media profiles or establish ownership of an email address.
+
+## Live Render deployment (November 2026)
+Frontend: https://leadflow-tp57.onrender.com
+Research backend: https://leadflow-research-api.onrender.com
+Backend health: https://leadflow-research-api.onrender.com/health
+The frontend defaults to the backend `/enrich` endpoint. The backend requires the private `API_TOKEN` configured in Render; enter it into the frontend session-only token field. Never put the token into committed frontend code. The backend runs on Render's free web service plan; availability and limits are subject to Render.
+
+The backend crawls only a few common pages of public company websites and checks robots.txt, applies request timeouts, limits response sizes, blocks obvious private network destinations and enforces a basic request rate limit. This is **not** a general-purpose internet scraper, neural network, or independently verified contact database. Public contact details can be stale or inaccurate. Social profiles are discovered only when linked by the business website; the service does not scrape social networks.
+
+## Outreach studio
+Use **Draft outreach** on a lead, then fill in your offer, sender identification, and opt-out instructions. LeadFlow creates an editable first email and two proposed follow-ups. **No emails or social messages are sent.** Automatic sending requires sender authorization, durable campaign and suppression storage, reply detection, opt-out processing, verified sender domains and careful compliance controls. No service can guarantee spam-folder avoidance.
