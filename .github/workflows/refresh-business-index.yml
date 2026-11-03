@@ -1,5 +1,9 @@
 name: Refresh Maryland business index
 on:
+  push:
+    paths:
+      - 'scripts/build_maryland_index.py'
+      - '.github/workflows/refresh-business-index.yml'
   workflow_dispatch:
   schedule:
     - cron: '15 7 * * 0'
