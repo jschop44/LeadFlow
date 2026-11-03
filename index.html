@@ -25,12 +25,12 @@
 @media(max-width:1100px){.table-wrap table{min-width:1040px}.table-wrap th,.table-wrap td{padding:14px 10px}}
 </style></head><body><header><div class="brand">Lead<span>Flow</span></div><div class="tag">Discover • Enrich • Export</div></header><main><section class="hero"><div><h1>Find your next customers.</h1><p class="muted">Discover publicly listed businesses in Health, Wealth, and Relationships.</p></div><span class="pill">Free public-data discovery</span></section>
 <section class="panel"><h2>Lead discovery</h2><div class="filters"><div><label for="market">Market: Wealth, Health or Relationships</label><select id="market"><option value="Wealth" selected>Wealth</option><option value="Health">Health</option><option value="Relationships">Relationships</option><option value="Ecommerce">Ecommerce</option></select></div><div><label for="niche">Business niche</label><select id="niche"><option>Financial advisors</option><option>Real estate agents</option><option>Accountants</option><option>Insurance agencies</option><option>Business coaches</option><option>Marketing agencies</option></select></div><div><label for="country">Country</label><select id="country"><option value="United States">United States</option></select></div><div><label for="area">City, state, or ZIP (optional)</label><input id="area" placeholder="Leave blank for USA-wide online discovery" autocomplete="address-level2"></div></div><div style="margin:12px 0"><label for="product-keyword">Product keyword or website URL (optional — ecommerce stores)</label><input id="product-keyword" placeholder="e.g. red light therapy or https://example.com" autocomplete="off"></div><div class="actions"><button id="search" class="primary">Find businesses</button><button id="export" class="secondary">Export CSV</button><button id="clear" class="secondary">Clear results</button><button id="enrich" class="secondary">Enrich website contacts</button></div><div style="margin-top:16px"><label for="worker">Contact research API URL</label><input id="worker" placeholder="https://leadflow-research-api.onrender.com/enrich" aria-label="Enrichment API URL"></div><div style="margin-top:12px"><label for="api-token">Enrichment API access token (session only)</label><input id="api-token" type="password" placeholder="Worker API token" autocomplete="off"></div><div style="margin-top:12px"><label for="type-filter">Business type</label><select id="type-filter"><option value="all">All businesses</option><option value="Local">Local</option><option value="Online">Online</option><option value="Local + Online">Local + Online</option><option value="Unverified">Unverified</option></select></div><div id="status" class="status" role="status" aria-live="polite">Enter a location for local and online results, or leave it blank to discover USA-based online business candidates.</div></section>
-<section class="panel" id="outreach"><h2>Smart outreach</h2><p class="muted">Select a business from your search results, then generate an email or social message. Growth Lens analyzes the website privately in the background. No message is sent automatically.</p><div id="selected-business" class="pill" style="display:inline-block;margin:8px 0 16px">No business selected</div><div class="actions" style="align-items:center;flex-wrap:wrap">
-<button id="make-draft" class="primary" onclick="window.leadflowDraft && window.leadflowDraft('email')">Generate email</button>
-<button id="make-social" class="secondary" onclick="window.leadflowDraft && window.leadflowDraft('social')">Generate social message</button>
+<section class="panel" id="outreach"><h2>Smart outreach</h2><p class="muted">Select a business, then choose an outreach action. Growth Lens analyzes the website privately in the background. No message is sent automatically.</p><div id="selected-business" class="pill" style="display:inline-block;margin:8px 0 16px">No business selected</div><div class="actions" style="align-items:center;flex-wrap:wrap">
+
+
 <label for="outreach-action" style="margin:0">Next action</label>
 <select id="outreach-action" style="width:auto;min-width:220px;max-width:100%">
-<option value="">Choose an action…</option>
+<option value="">Choose an action…</option><option value="draft-email">Write email draft</option><option value="draft-social">Write social message</option>
 <option value="copy">Copy draft</option>
 <option value="compose-email">Open email app</option>
 <option value="send-connected">Send from connected email</option>
@@ -49,7 +49,7 @@
 <label for="social-destination">Verified social profile</label>
 <select id="social-destination" style="max-width:360px" disabled><option value="">No verified profiles</option></select>
 </details>
-<div style="display:none" aria-hidden="true">
+<div style="display:none" aria-hidden="true"><button id="make-draft" onclick="window.leadflowDraft && window.leadflowDraft('email')">Generate email</button><button id="make-social" onclick="window.leadflowDraft && window.leadflowDraft('social')">Generate social message</button>
 <button id="copy-draft" class="secondary">Copy draft</button>
 <button id="compose-email" class="secondary" disabled>Open email app</button>
 <button id="send-connected" class="secondary" disabled>Send email</button>
@@ -185,7 +185,7 @@ $('compose-social').onclick=async()=>{
 };
 $('run-outreach-action').onclick=()=>{
  const choice=$('outreach-action').value;
- const ids={copy:'copy-draft','compose-email':'compose-email','send-connected':'send-connected','compose-social':'compose-social','open-social':'open-social'};
+ const ids={'draft-email':'make-draft','draft-social':'make-social',copy:'copy-draft','compose-email':'compose-email','send-connected':'send-connected','compose-social':'compose-social','open-social':'open-social'};
  const target=$(ids[choice]);if(!target){$('outreach-note').textContent='Choose an action first.';return}
  if(target.disabled){$('outreach-note').textContent='This action is unavailable. Generate a draft, connect email, or verify a social profile first.';return}
  target.click();
