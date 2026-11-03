@@ -23,6 +23,20 @@ jobs:
           execFileSync('node',['--check','/tmp/leadflow-frontend.cjs'],{stdio:'inherit'});
           NODE
       - run: node --test worker/test/*.test.mjs backend/test/*.test.mjs
+      - name: Validate expanded Maryland coverage
+        run: |
+          node --input-type=module <<'NODE'
+          import {readFileSync} from 'node:fs';
+          const data=JSON.parse(readFileSync('backend/data/maryland-businesses.json','utf8'));
+          const rows=data.records||[];
+          const counts={};
+          for(const row of rows)for(const niche of row.niches||[])counts[niche]=(counts[niche]||0)+1;
+          console.log(JSON.stringify({total:rows.length,counts}));
+          if(rows.length<100)throw Error('Expanded Maryland snapshot has insufficient records');
+          for(const niche of ['Financial advisors','Real estate agents','Dental practices','Wellness clinics','Insurance agencies']){
+            if((counts[niche]||0)<10)throw Error('Missing expected Maryland niche coverage: '+niche);
+          }
+          NODE
       - name: Verify local Maryland search end-to-end
         run: |
           PORT=18080 node backend/server.js > /tmp/leadflow-server.log 2>&1 &
