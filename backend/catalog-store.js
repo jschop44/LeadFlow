@@ -21,6 +21,8 @@ export function createCatalogStore(dir){
  }
  function save(row){
   const operation=pending.catch(()=>{}).then(async()=>{
+   const previous=records.get(row.domain);
+   if(previous?.sharedFeedback && row.sharedFeedback===undefined)row={...row,sharedFeedback:previous.sharedFeedback};
    if(pool)await pool.query('INSERT INTO leadflow_online_catalog(domain,data,checked_at) VALUES($1,$2,NOW()) ON CONFLICT(domain) DO UPDATE SET data=EXCLUDED.data,checked_at=NOW()',[row.domain,JSON.stringify(row)]);
    await mkdir(dir,{recursive:true});const tmp=file+'.tmp';const nextRecords=new Map(records);nextRecords.set(row.domain,row);await writeFile(tmp,JSON.stringify([...nextRecords.values()].slice(-10000)));await rename(tmp,file);records.set(row.domain,row);
   });
