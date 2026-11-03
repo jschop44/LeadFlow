@@ -51,8 +51,8 @@
 </details>
 <div style="display:none" aria-hidden="true"><button id="make-draft" onclick="window.leadflowDraft && window.leadflowDraft('email')">Generate email</button><button id="make-social" onclick="window.leadflowDraft && window.leadflowDraft('social')">Generate social message</button>
 <button id="copy-draft" class="secondary">Copy draft</button>
-<button id="compose-email" class="secondary" disabled>Open email app</button>
-<button id="send-connected" class="secondary" disabled>Send email</button>
+<button id="compose-email" class="secondary">Open email app</button>
+<button id="send-connected" class="secondary">Send email</button>
 <button id="compose-social" class="secondary" disabled>Open message composer</button>
 <button id="open-social" class="secondary" onclick="window.leadflowOpenSocial && window.leadflowOpenSocial()">Open social profile</button>
 </div><details id="outreach-settings" style="margin:18px 0"><summary>One-time sender and service setup</summary><p class="muted">Save your offering and sender details once on this device. They are reused for each lead.</p><div class="filters"><div><label for="out-service">Service you offer</label><input id="out-service" placeholder="e.g. Website conversion optimization"></div><div><label for="out-sender">Your business name and postal address</label><input id="out-sender" placeholder="Business name and address"></div><div><label for="out-optout">Opt-out instructions</label><input id="out-optout" placeholder="Reply unsubscribe"></div></div><div class="actions"><button id="save-outreach-settings" class="secondary">Save settings on this device</button></div></details><div id="outreach-note" class="muted" style="margin:12px 0">Select a business above to begin.</div><label for="draft-output">Personalized draft — review before sending</label><textarea id="draft-output" rows="12" style="width:100%;background:#0d1527;color:#edf2ff;border:1px solid #364663;border-radius:10px;padding:16px" placeholder="Select a lead and click Generate email draft."></textarea></section><section class="stats"><div class="stat"><span class="muted">Discovered leads</span><strong id="count">0</strong></div><div class="stat"><span class="muted">With websites</span><strong id="sites">0</strong></div><div class="stat"><span class="muted">Saved leads</span><strong id="saved">0</strong></div></section>
@@ -124,7 +124,7 @@ function renderOutreachDraft(mode,data,opportunity,analysisStatus){
  }
  $('draft-output').value=lastDraft;
  $('draft-output').setAttribute('aria-label','Editable outreach message');
- $('compose-email').disabled=mode!=='email';emailConnectionUI();$('compose-social').disabled=mode!=='social'||!socialProfile(selectedDraftLead);
+ $('compose-email').disabled=false;emailConnectionUI();$('compose-social').disabled=mode!=='social'||!socialProfile(selectedDraftLead);
  $('outreach-note').textContent=(verified?'Personalized using a verified Growth Lens finding. ':analysisStatus==='loading'?'Draft ready. Checking Growth Lens for additional personalization… ':analysisStatus==='unavailable'?'Draft ready. Website analysis was unavailable, so no specific issue was claimed. ':'Draft ready. ')+'Review before sending; nothing was sent.';
 }
 async function createSmartDraft(mode){
@@ -148,13 +148,13 @@ window.leadflowDraft=createSmartDraft;
 window.leadflowOpenSocial=()=>{if(!selectedDraftLead){$('outreach-note').textContent='Select a business first.';return}const profile=socialProfile(selectedDraftLead);if(!profile){$('outreach-note').textContent='No verified social profile for this business. Run verification first.';return}window.location.assign(profile)};
 let emailSession='',emailProvider='';
 const emailApi='https://leadflow-research-api.onrender.com';
-function emailConnectionUI(){ $('email-connection').textContent=emailSession?'Connected: '+emailProvider:'Email not connected';$('disconnect-email').disabled=!emailSession;$('send-connected').disabled=!emailSession||lastDraftMode!=='email'||!selectedDraftLead }
+function emailConnectionUI(){ $('email-connection').textContent=emailSession?'Connected: '+emailProvider:'Email not connected';$('disconnect-email').disabled=!emailSession;$('send-connected').disabled=false }
 $('connect-gmail').onclick=()=>{window.location.assign(emailApi+'/oauth/start?provider=google')};
 $('connect-microsoft').onclick=()=>{window.location.assign(emailApi+'/oauth/start?provider=microsoft')};
 $('disconnect-email').onclick=async()=>{if(emailSession)await fetch(emailApi+'/oauth/disconnect',{method:'POST',headers:{authorization:'Bearer '+emailSession}}).catch(()=>{});emailSession='';emailProvider='';emailConnectionUI()};
 (async()=>{const errorMatch=location.hash.match(/^#oauth-error=(.+)$/);if(errorMatch){history.replaceState(null,'',location.pathname+location.search);let message='Email connection unavailable';try{message=decodeURIComponent(errorMatch[1])}catch{}$('outreach-note').textContent=message.includes('credentials are not configured')?'Email connection setup required: '+message+'. Register the provider OAuth app and configure its client ID and secret in the backend.':'Email connection failed: '+message;$('outreach-note').scrollIntoView({behavior:'smooth',block:'center'});return}const match=location.hash.match(/^#oauth-ticket=(.+)$/);if(!match)return;history.replaceState(null,'',location.pathname+location.search);try{const response=await fetch(emailApi+'/oauth/exchange',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ticket:decodeURIComponent(match[1])})});const result=await response.json();if(!response.ok)throw Error(result.error||'Connection failed');emailSession=result.session;emailProvider=result.provider;emailConnectionUI();$('outreach-note').textContent='Email connected securely for this browser tab. Select a lead and generate an email.'}catch(e){$('outreach-note').textContent='Email connection failed: '+e.message}})();
 $('send-connected').onclick=async()=>{
- if(!emailSession||!selectedDraftLead||lastDraftMode!=='email')return;
+ if(!emailSession){$('outreach-note').textContent='Connect Gmail or Microsoft 365 first. If provider authorization is not configured, use Open email app to compose manually; LeadFlow cannot send without authorized account access.';return}if(!selectedDraftLead||lastDraftMode!=='email'){$('outreach-note').textContent='Select a lead and generate an email draft first.';return}
  const to=String(selectedDraftLead.email||selectedDraftLead.enrichedEmails?.[0]||'').trim();
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){$('outreach-note').textContent='No valid recipient email address. Enrich contacts first.';return}
  const lines=$('draft-output').value.trim().split('\n');const subject=lines[0].startsWith('SUBJECT: ')?lines.shift().slice(9):'Business introduction',body=lines.join('\n').trim();
@@ -165,15 +165,17 @@ $('send-connected').onclick=async()=>{
  finally{emailConnectionUI()}
 };
 $('compose-email').onclick=()=>{
- if(!selectedDraftLead||lastDraftMode!=='email')return;
+ if(!selectedDraftLead||lastDraftMode!=='email'){$('outreach-note').textContent='Select a lead and generate an email draft first.';return}
  const email=String(selectedDraftLead.email||selectedDraftLead.enrichedEmails?.[0]||'').trim();
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$('outreach-note').textContent='No verified recipient email address is available. Enrich contacts first.';return}
  const content=$('draft-output').value.trim(),lines=content.split('\n');
  const subject=lines[0].startsWith('SUBJECT: ')?lines.shift().slice(9):'Business introduction';
  const body=lines.join('\n').trim();
  if(!confirm('Open your email app with this reviewed message addressed to '+email+'? You must press Send in your email app.'))return;
- window.location.href='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
- $('outreach-note').textContent='Email composer opened. Review and press Send in your email app; LeadFlow has not sent anything.';
+ const mailto='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
+ const fallback=document.createElement('a');fallback.href=mailto;fallback.textContent='If your mail app did not open, tap here to try again';fallback.style.display='block';fallback.style.marginTop='8px';$('outreach-note').replaceChildren(document.createTextNode('Opening your email composer. If your device has no default mail handler, use Gmail or Outlook in your browser. '),fallback);
+ window.location.href=mailto;
+ 
 };
 $('compose-social').onclick=async()=>{
  if(!selectedDraftLead||lastDraftMode!=='social')return;
