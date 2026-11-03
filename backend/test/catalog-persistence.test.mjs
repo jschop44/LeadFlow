@@ -13,6 +13,8 @@ test('catalog feedback persists across store restart and subsequent refresh', as
   const row={domain:'example.org',classification:'Online',name:'Example'};
   await store.save(row);
   await store.save({...row,sharedFeedback:{positive:2,negative:1,evidenceType:'unverified_feedback'}});
+  await store.save({...row,name:'Refreshed business name'});
+  assert.equal(store.records.get('example.org').sharedFeedback.positive,2,'Refreshing metadata must preserve feedback');
   const reopened=createCatalogStore(dir);
   await reopened.init();
   assert.deepEqual(reopened.records.get('example.org').sharedFeedback,{positive:2,negative:1,evidenceType:'unverified_feedback'});
