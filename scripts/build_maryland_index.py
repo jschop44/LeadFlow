@@ -45,7 +45,7 @@ class Collect(osmium.SimpleHandler):
   rows[typ+"/"+str(obj.id)]={"type":typ,"id":obj.id,"lat":round(lat,6),"lon":round(lon,6),"tags":keep,"niches":niches,"sourceAgreement":["OpenStreetMap Geofabrik Maryland extract"]}
  def node(self,obj):self.add(obj,"node")
  def way(self,obj):self.add(obj,"way")
-Collect().apply_file(PBF,locations=True)
+Collect().apply_file(PBF,locations=True,idx='flex_mem')
 OUT.parent.mkdir(parents=True,exist_ok=True)
 OUT.write_text(json.dumps({"source":"Geofabrik / OpenStreetMap contributors","region":"Maryland","records":list(rows.values())},separators=(",",":")))
 print("Indexed",len(rows),"named Maryland businesses")
