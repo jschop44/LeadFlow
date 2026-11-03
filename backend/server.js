@@ -210,7 +210,7 @@ async function discoverNationwideCandidates(){
   for(const entity of Object.values(entities?.entities||{})){
    if(verified>=8)break;
    const claims=entity.claims||{};
-   const us=claims.P17?.some(c=>c.mainsnak?.datavalue?.value?.id==='Q30')||claims.P159?.some(c=>c.mainsnak?.datavalue?.value?.id==='Q30');
+   const us=claims.P17?.some(c=>c.mainsnak?.datavalue?.value?.id==='Q30');
    if(!us)continue;
    const website=claims.P856?.map(c=>c.mainsnak?.datavalue?.value).find(v=>typeof v==='string'&&/^https?:\/\//.test(v));
    const domain=catalogDomain(website),name=entity.labels?.en?.value;
