@@ -46,6 +46,9 @@ test('HTTP feedback survives a server restart and changes priority, not evidence
   const before=(await request({query:'Isolated Test Company',limit:5})).leads.find(x=>x.domain===domain);
   assert.ok(before,'seeded lead must appear');
   assert.equal(before.feedbackAdjustment,0);
+  const empty=await request({action:'feedback-sync',domain,positive:0,negative:0});
+  assert.equal(empty.accepted,false);
+  assert.equal(empty.reason,'invalid_counts');
   const ack=await request({action:'feedback-sync',domain,positive:5,negative:0});
   assert.equal(ack.accepted,true);
   assert.equal(ack.storage,'ephemeral_snapshot');
