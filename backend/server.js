@@ -200,20 +200,21 @@ const discoveryTerms={
  'Nutritionists':'nutrition company','Chiropractors':'chiropractic company','Wellness clinics':'wellness company',
  'Dating coaches':'dating coaching company','Matchmakers':'matchmaking company','Couples counselors':'online therapy company',
  'Wedding planners':'wedding planning company','Relationship coaches':'relationship coaching company'
-};
+,
+ 'Red light therapy devices':'red light therapy company','Sauna blankets':'infrared sauna blanket company','Skin-care devices':'skin care devices company'};
 async function discoverNationwideCandidates(){
  if(Date.now()<discoveryBackoffUntil)return;
  const niches=Object.keys(discoveryTerms),niche=niches[discoveryNicheIndex++%niches.length];
  try{
   // Wikimedia's indexed search is intended for keyword discovery; SPARQL is not.
-  const params=new URLSearchParams({action:'query',generator:'search',gsrsearch:discoveryTerms[niche]+' haswbstatement:P17=Q30 haswbstatement:P856',gsrnamespace:'0',gsrlimit:'30',prop:'info',format:'json',origin:'*'});
+  const params=new URLSearchParams({action:'query',generator:'search',gsrsearch:discoveryTerms[niche]+' haswbstatement:P17=Q30 haswbstatement:P856',gsrnamespace:'0',gsrlimit:'50',prop:'info',format:'json',origin:'*'});
   const search=await fetchJSON('https://www.wikidata.org/w/api.php?'+params,{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlowResearch/1.0 (business discovery)'}});
-  const ids=Object.values(search?.query?.pages||{}).map(page=>page.title).filter(title=>/^Q[0-9]+$/.test(title)).slice(0,30);
+  const ids=Object.values(search?.query?.pages||{}).map(page=>page.title).filter(title=>/^Q[0-9]+$/.test(title)).slice(0,50);
   if(!ids.length){console.log('Nationwide discovery: no candidates',niche);return}
   const entities=await fetchJSON('https://www.wikidata.org/w/api.php?'+new URLSearchParams({action:'wbgetentities',ids:ids.join('|'),props:'claims|labels|descriptions',languages:'en',format:'json'}),{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlowResearch/1.0 (business discovery)'}});
   let verified=0;
   for(const entity of Object.values(entities?.entities||{})){
-   if(verified>=8)break;
+   if(verified>=12)break;
    const claims=entity.claims||{};
    const us=claims.P17?.some(c=>c.mainsnak?.datavalue?.value?.id==='Q30');
    if(!us)continue;
@@ -252,7 +253,7 @@ async function refreshOnlineCatalog(){
    const record={domain,niches:[...new Set([...(previous?.niches||[]),...(row.niches||[])])],checkedAt:Date.now(),classification,platform:result.platform,evidence:result.classificationEvidence,usEvidence:'US mapped business record',element:{...el,tags:{...t,website},classification,platform:result.platform,classificationEvidence:result.classificationEvidence,usEvidence:'US mapped business record'}};
    onlineCatalog.set(domain,record);await catalogStore.save(record);
   }
-  await discoverNationwideCandidates();
+  await Promise.allSettled([discoverNationwideCandidates(),discoverNationwideCandidates(),discoverNationwideCandidates()]);
  }catch(e){console.warn('Catalog refresh failed:',e.message)}finally{catalogRefreshActive=false}
 }
 const productMerchantSources={
@@ -336,19 +337,19 @@ async function searchProductKeyword(raw){
  const direct=records.filter(r=>group&&r.niches?.includes(group.niche));
  const matches=[...direct];
  // Only match additional catalog records when the public storefront itself mentions the product.
- const candidates=records.filter(r=>!direct.includes(r)).slice(0,60);
+ const candidates=records.filter(r=>!direct.includes(r)).slice(0,120);
  await Promise.all(candidates.map(async r=>{
   try{const html=(await get(r.element?.tags?.website||'')).toLowerCase().replace(/<[^>]*>/g,' ').replace(/\s+/g,' ');
    if(tokens.every(t=>html.includes(t)))matches.push(r)
   }catch{}
  }));
- const unique=[...new Map(matches.map(r=>[r.domain,r])).values()].slice(0,100);
+ const unique=[...new Map(matches.map(r=>[r.domain,r])).values()].slice(0,150);
  return {elements:unique.map(r=>({...r.element,sourceAgreement:['Inspected online storefront','Product keyword match']})),
   niche:query,source:'LeadFlow product keyword search',searchStatus:unique.length?'ok':'no_verified_matches',
   catalogSize:onlineCatalog.size,message:unique.length?'Matching storefronts from inspected public websites.':'No verified storefront matches yet. This search covers the current catalog and does not claim to index every Shopify store.'};
 }
 async function searchOnlineBusinesses(niche){
- if(!onlineNicheTerms[niche])throw Error('Unsupported niche');
+ if(!onlineNicheTerms[niche]&&!discoveryTerms[niche])throw Error('Unsupported niche');
  if(productMerchantSources[niche])await verifyProductMerchants(niche);
  const cached=onlineCache.get(niche);if(cached&&Date.now()-cached.at<30000&&cached.result.catalogSize===onlineCatalog.size)return {...cached.result,cached:true};
  const indexed=await searchIndexedOnlineBusinesses(niche);onlineCache.set(niche,{at:Date.now(),result:indexed});return indexed;
