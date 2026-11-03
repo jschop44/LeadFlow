@@ -44,6 +44,7 @@ class Collect(osmium.SimpleHandler):
   niches=[n for n,criteria in CATEGORIES.items() if any(rx.search(tags.get(k,"")) for k,rx in criteria)]
   searchable=" ".join([name,tags.get("description",""),tags.get("service",""),tags.get("services",""),tags.get("speciality","")])
   for niche,pattern in SPECIALIZED.items():
+   if niche in niches and not pattern.search(searchable) and niche in ("Business coaches","Couples counselors","Wedding planners","Nutritionists","Med spas","Fitness coaches"):niches.remove(niche)
    if pattern.search(searchable) and niche not in niches:niches.append(niche)
   if not niches:return
   try:
