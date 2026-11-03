@@ -134,6 +134,34 @@ const onlineNicheTerms={
  'Relationship coaches':'relationship|dating|counseling'
 };
 const onlineCache=new Map();
+const platformCache=new Map();
+async function inspectBusinessWebsite(raw){
+ let hostname;try{hostname=new URL(raw).hostname.toLowerCase()}catch{return {classification:'Unverified',platform:'Not verified',classificationEvidence:'Invalid website URL'}}
+ const cached=platformCache.get(hostname);if(cached&&Date.now()-cached.at<86400000)return cached.result;
+ let result={classification:'Unverified',platform:'Not verified',classificationEvidence:'Website not inspected'};
+ try{
+  // Reuse the restricted-host, DNS, response-size and redirect protections of get().
+  const html=await get(raw);
+  const shopify=/cdn\.shopify\.com|shopify\.theme|shopify-section|shopify-payment-button|shopify\.com\/s\/files/i.test(html);
+  const woo=/woocommerce|wp-content\/plugins\/woocommerce|wc-block-components/i.test(html);
+  const commerce=/\badd to cart\b|\bcheckout\b|\bbuy now\b|\/cart(?:["'/?#]|\b)|product-form__submit/i.test(html);
+  const booking=/\bbook online\b|\bvirtual consultation\b|\bonline appointment\b|\bonline course\b/i.test(html);
+  const platform=shopify?'Shopify':woo?'WooCommerce':'Not verified';
+  result={classification:commerce||booking||shopify||woo?'Online':'Unverified',platform,classificationEvidence:shopify?'Public Shopify storefront assets':woo?'Public WooCommerce storefront assets':commerce?'Public checkout/cart wording':booking?'Public online booking or remote-service wording':'No strong online commerce or service evidence'};
+ }catch(e){result.classificationEvidence='Website inspection unavailable: '+String(e.message).slice(0,90)}
+ platformCache.set(hostname,{at:Date.now(),result});return result;
+}
+async function classifyElements(elements){
+ const output=elements.map(el=>({...el,tags:{...el.tags}}));
+ // Limit concurrent remote checks to avoid overloading public websites.
+ let next=0;const workers=Array.from({length:4},async()=>{while(next<Math.min(output.length,24)){const i=next++,el=output[i],t=el.tags||{},site=t.website||t['contact:website'];const physical=Boolean(t['addr:street']||t['addr:housenumber']||t['addr:city']||el.lat||el.lon||el.center);
+ if(!site){el.classification=physical?'Local':'Unverified';el.classificationEvidence=physical?'Mapped physical business presence':'No website or physical-location evidence';continue}
+ const info=await inspectBusinessWebsite(site);el.platform=info.platform;el.classification=info.classification==='Online'?(physical?'Local + Online':'Online'):(physical?'Local':'Unverified');el.classificationEvidence=info.classificationEvidence;
+ }});
+ await Promise.all(workers);
+ return output;
+}
+
 async function searchOnlineBusinesses(niche){
  if(!onlineNicheTerms[niche])throw Error('Unsupported niche');
  const cached=onlineCache.get(niche);if(cached&&Date.now()-cached.at<900000)return {...cached.result,cached:true};
@@ -151,7 +179,7 @@ async function searchOnlineBusinesses(niche){
   if(seen.has(host))continue;seen.add(host);
   elements.push({type:'wikidata',id,tags:{name,website,'addr:country':'US',description:row.description?.value||''},sourceAgreement:['Wikidata: US country or headquarters claim'],sourceCount:1,onlineCandidate:true,usEvidence:'Wikidata country or headquarters: United States',platform:'Not verified',classification:'Unverified'});
  }
- const result={elements,niche,source:'Wikidata US-based website discovery',searchStatus:elements.length?'ok':'no_matches',message:elements.length?'US evidence is based on Wikidata country or headquarters claims. Online activity and Shopify platform have not been verified.':'No qualifying US businesses found in this free source for this niche.'};
+ const classified=await classifyElements(elements);const result={elements:classified,niche,source:'Wikidata US-based website discovery',searchStatus:elements.length?'ok':'no_matches',message:elements.length?'US evidence is based on Wikidata claims; online operations and Shopify are marked only when website signals are found.':'No qualifying US businesses found in this free source for this niche.'};
  onlineCache.set(niche,{at:Date.now(),result});return result;
 }
 function json(res,status,data,origin){res.writeHead(status,{'content-type':'application/json','access-control-allow-origin':origin===ORIGIN?ORIGIN:'null','access-control-allow-headers':'content-type, x-leadflow-token','access-control-allow-methods':'POST, OPTIONS, GET','cache-control':'no-store'});res.end(JSON.stringify(data))}
