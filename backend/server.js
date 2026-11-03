@@ -3,7 +3,8 @@ import dns from 'node:dns/promises';
 import net from 'node:net';
 import {randomUUID} from 'node:crypto';
 import {mkdir,readFile,writeFile,rename} from 'node:fs/promises';
-import {join} from 'node:path';
+import {join,dirname} from 'node:path';
+import {fileURLToPath} from 'node:url';
 const PORT=Number(process.env.PORT||10000);
 const ORIGIN=process.env.ALLOWED_ORIGIN||'https://leadflow-tp57.onrender.com';
 const TOKEN=process.env.API_TOKEN||'';
@@ -27,7 +28,7 @@ async function wikidataPlaces(lat,lon,niche){const terms={'Financial advisors':'
 function mergeSources(osm,other){const merged=osm.map(x=>({...x,sourceAgreement:['OpenStreetMap']}));let added=0,matched=0;for(const item of other){const match=merged.find(x=>cleanName(x.tags?.name)===cleanName(item.tags.name)&&nearby({lat:x.lat||x.center?.lat,lon:x.lon||x.center?.lon},item));if(match){match.sourceAgreement.push('Wikidata');match.independentSource=item.independentSource;matched++;if(!match.tags.website&&item.tags.website)match.tags.website=item.tags.website}else{merged.push({...item,sourceAgreement:['Wikidata']});added++}}return {elements:merged,added,matched}}
 const STORE_DIR=process.env.LEADFLOW_DATA_DIR||'/tmp/leadflow-data'; // Render free instances have ephemeral filesystems
 const STORE_FILE=join(STORE_DIR,'business-index.json');
-const SNAPSHOT_FILE=join(process.cwd(),'backend','data','maryland-businesses.json');
+const SNAPSHOT_FILE=join(dirname(fileURLToPath(import.meta.url)),'data','maryland-businesses.json');
 const businessIndex=new Map();
 let persistPending=Promise.resolve();
 function recordKey(x){const t=x.tags||{};const name=cleanName(t.name);const lat=Number(x.lat??x.center?.lat),lon=Number(x.lon??x.center?.lon);return name+'|'+(Number.isFinite(lat)?lat.toFixed(2):'')+'|'+(Number.isFinite(lon)?lon.toFixed(2):'')}
