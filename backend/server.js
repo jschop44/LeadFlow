@@ -334,15 +334,15 @@ async function searchProductKeyword(raw){
  if(group&&productMerchantSources[group.niche])await verifyProductMerchants(group.niche);
  const tokens=query.split(' ').filter(w=>w.length>2);
  const records=[...onlineCatalog.values()].filter(r=>['Online','Local + Online'].includes(r.classification));
- const direct=records.filter(r=>group&&r.niches?.includes(group.niche));
+ const direct=records.filter(r=>group&&r.niches?.includes(group.niche)||tokens.every(t=>(r.element?.tags?.name+' '+r.element?.tags?.description+' '+(r.niches||[]).join(' ')).toLowerCase().includes(t)));
  const matches=[...direct];
  // Only match additional catalog records when the public storefront itself mentions the product.
  const candidates=records.filter(r=>!direct.includes(r)).slice(0,120);
- await Promise.all(candidates.map(async r=>{
+ let nextProduct=0;await Promise.all(Array.from({length:6},async()=>{while(nextProduct<candidates.length){const r=candidates[nextProduct++];
   try{const html=(await get(r.element?.tags?.website||'')).toLowerCase().replace(/<[^>]*>/g,' ').replace(/\s+/g,' ');
    if(tokens.every(t=>html.includes(t)))matches.push(r)
   }catch{}
- }));
+ }}));
  const unique=[...new Map(matches.map(r=>[r.domain,r])).values()].slice(0,150);
  return {elements:unique.map(r=>({...r.element,sourceAgreement:['Inspected online storefront','Product keyword match']})),
   niche:query,source:'LeadFlow product keyword search',searchStatus:unique.length?'ok':'no_verified_matches',
