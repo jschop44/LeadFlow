@@ -192,7 +192,7 @@ async function refreshOnlineCatalog(){
  if(catalogRefreshActive)return;
  catalogRefreshActive=true;
  try{
-  const rows=[...businessIndex.values()].filter(v=>v.element?.tags?.website||v.element?.tags?.['contact:website']);
+  const rows=[...businessIndex.values()].filter(v=>v.element?.tags?.website||v.element?.tags?.['contact:website']).sort((a,b)=>{const ta=a.element?.tags||{},tb=b.element?.tags||{};const da=catalogDomain(ta.website||ta['contact:website']),db=catalogDomain(tb.website||tb['contact:website']);return (onlineCatalog.get(da)?.checkedAt||0)-(onlineCatalog.get(db)?.checkedAt||0)});
   let inspected=0,changed=0;
   for(const row of rows){
    if(inspected>=20)break;
