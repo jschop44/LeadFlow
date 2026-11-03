@@ -21,11 +21,12 @@ export function createCatalogStore(dir){
  }
  function save(row){
   records.set(row.domain,row);
-  pending=pending.then(async()=>{
+  const operation=pending.catch(()=>{}).then(async()=>{
    if(pool)await pool.query('INSERT INTO leadflow_online_catalog(domain,data,checked_at) VALUES($1,$2,NOW()) ON CONFLICT(domain) DO UPDATE SET data=EXCLUDED.data,checked_at=NOW()',[row.domain,JSON.stringify(row)]);
    await mkdir(dir,{recursive:true});const tmp=file+'.tmp';await writeFile(tmp,JSON.stringify([...records.values()].slice(-10000)));await rename(tmp,file);
-  }).catch(e=>console.warn('Catalog save failed:',e.message));
-  return pending;
+  });
+  pending=operation.catch(e=>console.warn('Catalog save failed:',e.message));
+  return operation;
  }
  return {records,init,save,health:()=>({count:records.size,durable,storage:durable?'postgres':'ephemeral_snapshot'})};
 }
