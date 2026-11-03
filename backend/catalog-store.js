@@ -20,10 +20,9 @@ export function createCatalogStore(dir){
   try{for(const row of JSON.parse(await readFile(file,'utf8')))if(row.domain&&!records.has(row.domain))records.set(row.domain,row)}catch(e){if(e.code!=='ENOENT')console.warn('Catalog snapshot unavailable:',e.message)}
  }
  function save(row){
-  records.set(row.domain,row);
   const operation=pending.catch(()=>{}).then(async()=>{
    if(pool)await pool.query('INSERT INTO leadflow_online_catalog(domain,data,checked_at) VALUES($1,$2,NOW()) ON CONFLICT(domain) DO UPDATE SET data=EXCLUDED.data,checked_at=NOW()',[row.domain,JSON.stringify(row)]);
-   await mkdir(dir,{recursive:true});const tmp=file+'.tmp';await writeFile(tmp,JSON.stringify([...records.values()].slice(-10000)));await rename(tmp,file);
+   await mkdir(dir,{recursive:true});const tmp=file+'.tmp';const nextRecords=new Map(records);nextRecords.set(row.domain,row);await writeFile(tmp,JSON.stringify([...nextRecords.values()].slice(-10000)));await rename(tmp,file);records.set(row.domain,row);
   });
   pending=operation.catch(e=>console.warn('Catalog save failed:',e.message));
   return operation;
