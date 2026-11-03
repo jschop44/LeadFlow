@@ -126,8 +126,8 @@ $('disconnect-email').onclick=async()=>{if(emailSession)await fetch(emailApi+'/o
 $('send-connected').onclick=async()=>{
  if(!emailSession||!selectedDraftLead||lastDraftMode!=='email')return;
  const to=String(selectedDraftLead.email||selectedDraftLead.enrichedEmails?.[0]||'').trim();
- if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(to)){$('outreach-note').textContent='No valid recipient email address. Enrich contacts first.';return}
- const lines=$('draft-output').value.trim().split('\\n');const subject=lines[0].startsWith('SUBJECT: ')?lines.shift().slice(9):'Business introduction',body=lines.join('\\n').trim();
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){$('outreach-note').textContent='No valid recipient email address. Enrich contacts first.';return}
+ const lines=$('draft-output').value.trim().split('\n');const subject=lines[0].startsWith('SUBJECT: ')?lines.shift().slice(9):'Business introduction',body=lines.join('\n').trim();
  if(!body||!confirm('Send this email from your connected '+emailProvider+' account to '+to+'? This will actually send the message.'))return;
  const btn=$('send-connected');btn.disabled=true;
  try{const response=await fetch(emailApi+'/oauth/send',{method:'POST',headers:{'content-type':'application/json',authorization:'Bearer '+emailSession},body:JSON.stringify({to,subject,body,confirm:true})});const result=await response.json();if(!response.ok)throw Error(result.error||'Send failed');$('outreach-note').textContent='Email accepted by '+emailProvider+' for '+to+'. Provider delivery is not guaranteed.'}
