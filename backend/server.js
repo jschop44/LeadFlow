@@ -294,7 +294,7 @@ async function searchIndexedOnlineBusinesses(niche){
  void refreshOnlineCatalog();
  return {elements,niche,source:'LeadFlow cached online catalog',searchStatus:elements.length?'ok':'no_verified_matches',catalogSize:onlineCatalog.size,checkedAt:records.length?Math.max(...records.map(v=>v.checkedAt)):null,message:elements.length?'Results are based on previously inspected public websites.':'No qualifying cached online businesses yet. The background catalog refresh is still expanding coverage.'};
 }
-function normalizeProductQuery(value){return String(value||'').toLowerCase().trim().replace(/[^a-z0-9 -]/g,' ').replace(/\\s+/g,' ').slice(0,90)}
+function normalizeProductQuery(value){return String(value||'').toLowerCase().trim().replace(/[^a-z0-9 -]/g,' ').replace(/\s+/g,' ').slice(0,90)}
 const productKeywordGroups=[
  {terms:['red light therapy','red light','photobiomodulation','infrared therapy','hair growth laser'],niche:'Red light therapy devices'},
  {terms:['sauna blanket','infrared sauna blanket'],niche:'Sauna blankets'},
@@ -313,7 +313,7 @@ async function searchProductKeyword(raw){
  // Only match additional catalog records when the public storefront itself mentions the product.
  const candidates=records.filter(r=>!direct.includes(r)).slice(0,18);
  await Promise.all(candidates.map(async r=>{
-  try{const html=(await get(r.element?.tags?.website||'')).toLowerCase().replace(/<[^>]*>/g,' ').replace(/\\s+/g,' ');
+  try{const html=(await get(r.element?.tags?.website||'')).toLowerCase().replace(/<[^>]*>/g,' ').replace(/\s+/g,' ');
    if(tokens.every(t=>html.includes(t)))matches.push(r)
   }catch{}
  }));
