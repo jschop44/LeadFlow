@@ -59,7 +59,17 @@ class Collect(osmium.SimpleHandler):
   rows[typ+"/"+str(obj.id)]={"type":typ,"id":obj.id,"lat":round(lat,6),"lon":round(lon,6),"tags":keep,"niches":niches,"sourceAgreement":["OpenStreetMap Geofabrik Maryland extract"]}
  def node(self,obj):self.add(obj,"node")
  def way(self,obj):self.add(obj,"way")
-Collect().apply_file(PBF,locations=True,idx='flex_mem')
+# Ways can contain incomplete geometry; retain valid nodes even when way geometry fails.
+handler=Collect()
+try:
+ handler.apply_file(PBF,locations=True,idx='flex_mem')
+except (RuntimeError,ValueError) as exc:
+ print("Geometry-enabled import failed; retrying named nodes only:",exc)
+ rows.clear()
+ class NodesOnly(Collect):
+  def way(self,obj):pass
+ NodesOnly().apply_file(PBF)
+
 OUT.parent.mkdir(parents=True,exist_ok=True)
 # Preserve independently sourced seed listings when the statewide OSM index refreshes.
 seed_path=Path("backend/data/maryland-seed-businesses.json")
