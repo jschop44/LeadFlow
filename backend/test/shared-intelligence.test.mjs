@@ -46,6 +46,12 @@ test('shared intelligence contract and isolation', async () => {
     assert.equal(unknownDomain.data.accepted,false);
     assert.equal(unknownDomain.data.reason,'unknown_catalog_domain');
 
+        const malformedCounts = await post('/intelligence', {action:'feedback-sync',domain:'example.com',positive:'3',negative:0}, {'x-leadflow-token':token});
+    assert.equal(malformedCounts.status,200);
+    assert.equal(malformedCounts.data.reason,'invalid_counts','Numeric strings must not be accepted as trusted feedback counts');
+    const excessiveCounts = await post('/intelligence', {action:'feedback-sync',domain:'example.com',positive:26,negative:0}, {'x-leadflow-token':token});
+    assert.equal(excessiveCounts.data.reason,'invalid_counts','Feedback volume must remain bounded');
+
     const authorized = await post('/intelligence', {query: '', limit: 3},
       {'x-leadflow-token': token});
     assert.equal(authorized.status, 200);
