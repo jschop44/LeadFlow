@@ -28,6 +28,10 @@ async function post(path, body, headers = {}) {
 test('shared intelligence contract and isolation', async () => {
   try {
     await ready();
+    const health = await (await fetch(base+'/health')).json();
+    assert.equal(health.sharedIntelligence.configured,true);
+    assert.equal(typeof health.sharedIntelligence.persistentCatalog,'boolean');
+
     const missing = await post('/intelligence', {query: 'financial'});
     assert.equal(missing.status, 401, 'Anonymous intelligence access must be rejected');
     const wrong = await post('/intelligence', {query: 'financial'},
