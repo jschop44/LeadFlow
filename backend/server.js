@@ -203,7 +203,7 @@ async function discoverNationwideCandidates(){
   // Wikimedia's indexed search is intended for keyword discovery; SPARQL is not.
   const params=new URLSearchParams({action:'query',generator:'search',gsrsearch:discoveryTerms[niche],gsrnamespace:'0',gsrlimit:'30',prop:'info',format:'json',origin:'*'});
   const search=await fetchJSON('https://www.wikidata.org/w/api.php?'+params,{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlowResearch/1.0 (business discovery)'}});
-  const ids=Object.keys(search?.query?.pages||{}).map(id=>'Q'+id).filter(id=>/^Q[0-9]+$/.test(id)).slice(0,30);
+  const ids=Object.values(search?.query?.pages||{}).map(page=>page.title).filter(title=>/^Q[0-9]+$/.test(title)).slice(0,30);
   if(!ids.length){console.log('Nationwide discovery: no candidates',niche);return}
   const entities=await fetchJSON('https://www.wikidata.org/w/api.php?'+new URLSearchParams({action:'wbgetentities',ids:ids.join('|'),props:'claims|labels|descriptions',languages:'en',format:'json'}),{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlowResearch/1.0 (business discovery)'}});
   let verified=0;
