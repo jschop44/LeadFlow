@@ -111,7 +111,7 @@ async function createSmartDraft(mode){
 window.leadflowDraft=createSmartDraft;
 window.leadflowOpenSocial=()=>{if(!selectedDraftLead){$('outreach-note').textContent='Select a business first.';return}const profile=socialProfile(selectedDraftLead);if(!profile){$('outreach-note').textContent='No verified social profile for this business. Run verification first.';return}window.location.assign(profile)};
 $('copy-draft').onclick=async()=>{if(!lastDraft)return;try{await navigator.clipboard.writeText(lastDraft);$('outreach-note').textContent='Draft copied. Nothing was sent.'}catch{$('draft-output').select();$('outreach-note').textContent='Select and copy the draft.'}};
-async function verifySocialProfiles(x){
+async async function verifySocialProfiles(x){
  if(x.socialLookupInProgress)return;
  x.socialLookupInProgress=true;
  try{
