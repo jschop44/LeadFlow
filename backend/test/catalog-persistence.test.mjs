@@ -33,3 +33,19 @@ test('failed snapshot writes do not acknowledge or publish catalog updates',asyn
   assert.equal(store.records.has('failure.example'),false);
  }finally{await rm(dir,{recursive:true,force:true})}
 });
+
+test('catalog snapshot is restored after multiple sequential saves',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'leadflow-catalog-sequence-'));
+ try{
+  const store=createCatalogStore(dir);
+  await store.init();
+  await Promise.all([
+   store.save({domain:'first.example',name:'First'}),
+   store.save({domain:'second.example',name:'Second'}),
+   store.save({domain:'third.example',name:'Third'})
+  ]);
+  const reopened=createCatalogStore(dir);
+  await reopened.init();
+  assert.deepEqual([...reopened.records.keys()].sort(),['first.example','second.example','third.example']);
+ }finally{await rm(dir,{recursive:true,force:true})}
+});
