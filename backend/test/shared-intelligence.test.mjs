@@ -41,7 +41,12 @@ test('shared intelligence contract and isolation', async () => {
     assert.equal(invalidWrite.data.accepted,false);
     assert.equal(invalidWrite.data.reason,'invalid_domain');
 
-const authorized = await post('/intelligence', {query: '', limit: 3},
+    const unknownDomain = await post('/intelligence', {action:'feedback-sync',domain:'not-in-catalog.invalid',positive:1,negative:0}, {'x-leadflow-token':token});
+    assert.equal(unknownDomain.status,200);
+    assert.equal(unknownDomain.data.accepted,false);
+    assert.equal(unknownDomain.data.reason,'unknown_catalog_domain');
+
+    const authorized = await post('/intelligence', {query: '', limit: 3},
       {'x-leadflow-token': token});
     assert.equal(authorized.status, 200);
     assert.match(authorized.data.engine, /LeadFlow/);
