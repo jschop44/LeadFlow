@@ -42,6 +42,12 @@ test('shared intelligence contract and isolation', async () => {
     assert.ok(Array.isArray(authorized.data.leads));
     assert.ok(authorized.data.leads.length <= 3);
     assert.ok(Number.isInteger(authorized.data.catalogSize));
+       assert.ok(Number.isInteger(authorized.data.refreshQueue.pending));
+       assert.ok(authorized.data.refreshQueue.pending >= 0);
+       assert.equal(authorized.data.refreshQueue.scheduledBatchSize, 12);
+       assert.equal(authorized.data.refreshQueue.refreshIntervalMinutes, 15);
+       assert.ok(Array.isArray(authorized.data.refreshQueue.next));
+       assert.ok(authorized.data.refreshQueue.next.length <= 12);
     for (const lead of authorized.data.leads) {
       assert.equal(typeof lead.name, 'string');
       assert.equal(typeof lead.website, 'string');
