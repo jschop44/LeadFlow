@@ -9,11 +9,11 @@ export function verifiedWikidataPeople(rows,website){
   const official=row.officialWebsite?.value;
   if(!official||normalizedWebsite(official)!==expected)continue;
   const entity=row.item?.value||'';
-  if(!/^https:\/\/www\.wikidata\.org\/entity\/Q\d+$/.test(entity))continue;
+  if(!/^https?:\/\/www\.wikidata\.org\/entity\/Q\d+$/.test(entity))continue;
   const name=row.personLabel?.value,role=row.role?.value;
   if(typeof name!=='string'||!/^[\p{L}][\p{L} .,'-]{3,89}$/u.test(name)||!['Founder','CEO'].includes(role))continue;
   const person=row.person?.value||'';
-  if(!/^https:\/\/www\.wikidata\.org\/entity\/Q\d+$/.test(person))continue;
+  if(!/^https?:\/\/www\.wikidata\.org\/entity\/Q\d+$/.test(person))continue;
   if(!found.some(x=>x.name===name&&x.role===role))found.push({name,role,source:entity,independentSource:'Wikidata',matchedWebsite:official});
  }
  return found.slice(0,15)
