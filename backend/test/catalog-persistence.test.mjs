@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtemp,rm,readFile} from 'node:fs/promises';
+import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createCatalogStore} from '../catalog-store.js';
@@ -20,5 +20,16 @@ test('catalog feedback persists across store restart and subsequent refresh', as
   assert.deepEqual(reopened.records.get('example.org').sharedFeedback,{positive:2,negative:1,evidenceType:'unverified_feedback'});
   const snapshot=JSON.parse(await readFile(join(dir,'online-catalog.json'),'utf8'));
   assert.equal(snapshot.find(x=>x.domain==='example.org').sharedFeedback.positive,2);
+ }finally{await rm(dir,{recursive:true,force:true})}
+});
+
+test('failed snapshot writes do not acknowledge or publish catalog updates',async()=>{
+ const dir=await mkdtemp(join(tmpdir(),'leadflow-catalog-failure-'));
+ try{
+  const blocker=join(dir,'not-a-directory');
+  await writeFile(blocker,'block directory creation');
+  const store=createCatalogStore(blocker);
+  await assert.rejects(store.save({domain:'failure.example',name:'Must not publish'}));
+  assert.equal(store.records.has('failure.example'),false);
  }finally{await rm(dir,{recursive:true,force:true})}
 });
