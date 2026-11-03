@@ -40,6 +40,17 @@ async function research(website){const u=await validate(website);const root=u.or
 const escape=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function draft({business,contact,service,benefit,sender,unsubscribe}){const name=String(contact||'').trim()||'there';const company=String(business||'').trim();if(!company||!service||!sender||!unsubscribe)throw Error('Business, service, sender and unsubscribe instructions required');const subject='A quick idea for '+company;const body='Hi '+name+',\n\nI came across '+company+' and thought '+String(service).trim()+' might be relevant. '+(benefit?String(benefit).trim():'Would you be open to a brief conversation?')+'\n\nIf this is not relevant, no worries.\n\n'+sender+'\n\nTo opt out: '+unsubscribe;const html='<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#243047;line-height:1.7"><div style="border-top:5px solid #1dbb97;padding:24px"><p>Hi '+escape(name)+',</p><p>I came across <strong>'+escape(company)+'</strong> and thought '+escape(service)+' might be relevant.</p><p>'+escape(benefit||'Would you be open to a brief conversation?')+'</p><p>If this is not relevant, no worries.</p><p>'+escape(sender)+'</p><hr><small>To opt out: '+escape(unsubscribe)+'</small></div></div>';return {subject,text:body,html,followUps:[{afterDays:4,subject:'Re: '+subject,text:'Hi '+name+', just following up once in case my earlier note got buried. If it is not relevant, I will close the loop.\n\n'+sender+'\nTo opt out: '+unsubscribe},{afterDays:9,subject:'Re: '+subject,text:'Hi '+name+', last note from me. Happy to share more if useful; otherwise I will not follow up further.\n\n'+sender+'\nTo opt out: '+unsubscribe}],status:'draft_only',sendingEnabled:false}}
 
+async function sharedOpportunityRanking(website,findings){
+ const base='https://growthlens-free-test.onrender.com';
+ const key=process.env.GROWTHLENS_PRIVATE_KEY;
+ if(!key)throw Error('Growth Lens key missing');
+ const response=await fetch(base+'/api/intelligence/opportunity-score',{
+  method:'POST',headers:{'content-type':'application/json','X-GrowthLens-Key':key},
+  body:JSON.stringify({website,findings}),signal:AbortSignal.timeout(9000)
+ });
+ if(!response.ok)throw Error('Scoring service HTTP '+response.status);
+ return response.json();
+}
 async function smartDraft(data){
  const business=String(data.business||'').trim(),service=String(data.service||'').trim();
  if(!business||!service||!data.sender||!data.unsubscribe)throw Error('Business, service, sender and opt-out instructions required');
@@ -50,7 +61,13 @@ async function smartDraft(data){
   try{
    const audit=await growthLensAudit(target.origin);
    auditStatus=audit.status||'completed';
-   if(auditStatus==='completed')opportunity=auditOpportunity(audit,service);
+   if(auditStatus==='completed'){
+    opportunity=auditOpportunity(audit,service);
+    try{
+     const shared=await sharedOpportunityRanking(target.origin,audit.findings||[]);
+     opportunity={...opportunity,sharedRanking:shared.ranking,sharedScore:shared.score,sharedModel:shared.model};
+    }catch(err){console.warn('Shared ranking unavailable:',err.message)}
+   }
    else opportunity={verified:false,reason:'Growth Lens returned a partial audit; no verified website finding'};
   }catch(error){auditStatus='unavailable';console.warn('Growth Lens audit not available:',error.message)}
  }
