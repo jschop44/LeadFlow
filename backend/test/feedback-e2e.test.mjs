@@ -9,9 +9,9 @@ test('HTTP feedback survives a server restart and changes priority, not evidence
  const dir=await mkdtemp(join(tmpdir(),'leadflow-feedback-e2e-'));
  const token='isolated-feedback-test-token';
  const domain='isolated-test.example';
- const row={domain,classification:'Online',checkedAt:Date.now(),platform:'Verified',
+ const row={domain,classification:'Online',checkedAt:Date.now(),platform:'Not verified',
    element:{tags:{name:'Isolated Test Company',website:'https://isolated-test.example'}},
-   evidence:'Public website inspected',usEvidence:'US presence verified',niches:['marketing']};
+   evidence:'Not inspected',usEvidence:'Unknown',niches:['marketing']};
  await mkdir(dir,{recursive:true});
  await writeFile(join(dir,'online-catalog.json'),JSON.stringify([row]));
  let child;
