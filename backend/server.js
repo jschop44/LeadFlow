@@ -189,6 +189,7 @@ async function loadOnlineCatalog(){await catalogStore.init();catalogReady=true}
 let catalogWrite=Promise.resolve();
 function saveOnlineCatalog(){return Promise.all([...onlineCatalog.values()].map(row=>catalogStore.save(row)))}
 let discoveryNicheIndex=0;
+let discoveryBackoffUntil=0;
 const discoveryTerms={
  'Financial advisors':'wealth management firm','Real estate agents':'real estate company','Accountants':'accounting firm',
  'Insurance agencies':'insurance company','Business coaches':'business coaching company','Marketing agencies':'digital marketing agency',
@@ -198,6 +199,7 @@ const discoveryTerms={
  'Wedding planners':'wedding planning company','Relationship coaches':'relationship coaching company'
 };
 async function discoverNationwideCandidates(){
+ if(Date.now()<discoveryBackoffUntil)return;
  const niches=Object.keys(discoveryTerms),niche=niches[discoveryNicheIndex++%niches.length];
  try{
   // Wikimedia's indexed search is intended for keyword discovery; SPARQL is not.
@@ -223,7 +225,7 @@ async function discoverNationwideCandidates(){
    await catalogStore.save(row);verified++;
   }
   console.log('Nationwide discovery',JSON.stringify({niche,candidates:ids.length,verified}));
- }catch(e){console.warn('Nationwide discovery skipped:',niche,e.message)}
+ }catch(e){if(String(e.message).includes('429'))discoveryBackoffUntil=Date.now()+3600000;console.warn('Nationwide discovery skipped:',niche,e.message)}
 }
 async function refreshOnlineCatalog(){
  if(catalogRefreshActive)return;
