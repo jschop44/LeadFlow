@@ -118,10 +118,10 @@ window.leadflowOpenSocial=()=>{if(!selectedDraftLead){$('outreach-note').textCon
 $('compose-email').onclick=()=>{
  if(!selectedDraftLead||lastDraftMode!=='email')return;
  const email=String(selectedDraftLead.email||selectedDraftLead.enrichedEmails?.[0]||'').trim();
- if(!/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email)){$('outreach-note').textContent='No verified recipient email address is available. Enrich contacts first.';return}
- const content=$('draft-output').value.trim(),lines=content.split('\\n');
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$('outreach-note').textContent='No verified recipient email address is available. Enrich contacts first.';return}
+ const content=$('draft-output').value.trim(),lines=content.split('\n');
  const subject=lines[0].startsWith('SUBJECT: ')?lines.shift().slice(9):'Business introduction';
- const body=lines.join('\\n').trim();
+ const body=lines.join('\n').trim();
  window.location.href='mailto:'+encodeURIComponent(email)+'?subject='+encodeURIComponent(subject)+'&body='+encodeURIComponent(body);
  $('outreach-note').textContent='Email composer opened. Review and press Send in your email app; LeadFlow has not sent anything.';
 };
