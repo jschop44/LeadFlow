@@ -149,7 +149,8 @@ const onlineNicheTerms={
  'Matchmakers':'matchmaking|dating',
  'Couples counselors':'counseling|therapy|relationship',
  'Wedding planners':'wedding|bridal',
- 'Relationship coaches':'relationship|dating|counseling'
+ 'Relationship coaches':'relationship|dating|counseling',
+ 'Red light therapy devices':'red light therapy|photobiomodulation|infrared light therapy|laser hair growth'
 };
 const onlineCache=new Map();
 const platformCache=new Map();
@@ -252,6 +253,38 @@ async function refreshOnlineCatalog(){
   await discoverNationwideCandidates();
  }catch(e){console.warn('Catalog refresh failed:',e.message)}finally{catalogRefreshActive=false}
 }
+const productMerchantSources={
+ 'Red light therapy devices':[
+  {name:'iRESTORE',website:'https://www.irestorelaser.com/'},
+  {name:'Hooga',website:'https://hoogahealth.com/'},
+  {name:'Mito Red Light',website:'https://mitoredlight.com/'}
+ ]
+};
+const productSeedRefresh=new Map();
+async function verifyProductMerchants(niche){
+ const merchants=productMerchantSources[niche];
+ if(!merchants)return;
+ if(Date.now()-(productSeedRefresh.get(niche)||0)<3600000)return;
+ productSeedRefresh.set(niche,Date.now());
+ for(const merchant of merchants){
+  const domain=catalogDomain(merchant.website);
+  if(!domain)continue;
+  const previous=onlineCatalog.get(domain);
+  if(previous&&Date.now()-previous.checkedAt<7*86400000&&previous.niches?.includes(niche))continue;
+  try{
+   const inspected=await inspectBusinessWebsite(merchant.website);
+   if(inspected.classification!=='Online')continue;
+   const element={type:'node',id:'merchant-'+domain,tags:{name:merchant.name,website:merchant.website},
+     classification:'Online',platform:inspected.platform,classificationEvidence:inspected.classificationEvidence,
+     usEvidence:'U.S. shipping offered on public storefront; headquarters not independently verified'};
+   const row={domain,niches:[...new Set([...(previous?.niches||[]),niche])],
+     checkedAt:Date.now(),classification:'Online',platform:inspected.platform,
+     evidence:inspected.classificationEvidence,usEvidence:element.usEvidence,element};
+   await catalogStore.save(row);
+   onlineCatalog.set(domain,row);
+  }catch(error){console.warn('Merchant verification unavailable:',domain,error.message)}
+ }
+}
 async function searchIndexedOnlineBusinesses(niche){
  const records=[...onlineCatalog.values()].filter(v=>v.niches.includes(niche)&&['Online','Local + Online'].includes(v.classification)).sort((a,b)=>(b.checkedAt||0)-(a.checkedAt||0));
  const elements=records.slice(0,100).map(v=>({...v.element,sourceAgreement:['Indexed US business','Observed public website signals']}));
@@ -261,6 +294,7 @@ async function searchIndexedOnlineBusinesses(niche){
 }
 async function searchOnlineBusinesses(niche){
  if(!onlineNicheTerms[niche])throw Error('Unsupported niche');
+ if(productMerchantSources[niche])await verifyProductMerchants(niche);
  const cached=onlineCache.get(niche);if(cached&&Date.now()-cached.at<30000&&cached.result.catalogSize===onlineCatalog.size)return {...cached.result,cached:true};
  const indexed=await searchIndexedOnlineBusinesses(niche);onlineCache.set(niche,{at:Date.now(),result:indexed});return indexed;
  // Wikidata statements provide independently checkable US headquarters/country and official website.
