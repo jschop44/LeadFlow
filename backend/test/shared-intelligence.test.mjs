@@ -49,6 +49,9 @@ test('shared intelligence contract and isolation', async () => {
       assert.ok(lead.score >= 0 && lead.score <= 100);
          assert.ok(['recent','stale','unknown'].includes(lead.evidenceStatus));
          assert.equal(lead.needsRefresh, lead.evidenceStatus !== 'recent');
+         assert.ok([0,5,15].includes(lead.freshnessPenalty));
+         assert.ok(['low','medium','high'].includes(lead.refreshPriority));
+         assert.equal(lead.refreshPriority, lead.ageDays === null || lead.ageDays > 30 ? 'high' : lead.ageDays > 7 ? 'medium' : 'low');
          assert.ok(lead.ageDays === null || Number.isInteger(lead.ageDays) && lead.ageDays >= 0);
       assert.ok(['Online', 'Local + Online'].includes(lead.classification));
       assert.equal(typeof lead.evidence, 'string');
