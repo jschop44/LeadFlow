@@ -66,6 +66,35 @@ jobs:
           if(!reachable)throw Error('No live company website could be enriched; inspect network/robots diagnostics');
           NODE
           kill $(cat /tmp/leadflow-enrichment.pid) || true
+      - name: Verify real Wikidata leadership with strict official-site matching
+        continue-on-error: true
+        run: |
+          node --input-type=module <<'NODE'
+          import {wikidataLeadership} from './backend/wikidata-leadership.js';
+          const cases=['https://www.google.com','https://www.microsoft.com','https://www.apple.com'];
+          let verified=0;
+          for(const website of cases){
+            try{
+              const people=await wikidataLeadership(website);
+              console.log(JSON.stringify({website,matchedLeaders:people.map(p=>({name:p.name,role:p.role,source:p.source,matchedWebsite:p.matchedWebsite}))}));
+              for(const person of people){
+                if(!person.source?.startsWith('https://www.wikidata.org/entity/')||!person.matchedWebsite)throw Error('Unattributed Wikidata person');
+              }
+              verified+=people.length;
+            }catch(error){console.error('Wikidata lookup failed for '+website+': '+error.message)}
+          }
+          if(!verified)throw Error('No public company leadership records verified: investigate Wikidata endpoint, official URL equality, and dataset coverage');
+          NODE
+      - name: Check deployed API health from GitHub runner
+        continue-on-error: true
+        run: |
+          node --input-type=module <<'NODE'
+          const url='https://leadflow-research-api.onrender.com/health';
+          const response=await fetch(url,{signal:AbortSignal.timeout(45000)});
+          const body=await response.json();
+          console.log(JSON.stringify({status:response.status,health:body.status,indexedBusinesses:body.indexedBusinesses}));
+          if(!response.ok||body.status!=='ok'||body.indexedBusinesses<100)throw Error('Deployed API health check failed');
+          NODE
       - name: Verify local Maryland search end-to-end
         run: |
           PORT=18080 node backend/server.js > /tmp/leadflow-server.log 2>&1 &
