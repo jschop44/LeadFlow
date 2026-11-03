@@ -1,0 +1,227 @@
+{
+  "source": "Individually verified public business websites and Harford County Chamber of Commerce",
+  "region": "Maryland",
+  "coverage": "Bel Air financial advisors starter index; not a statewide comprehensive extract",
+  "records": [
+    {
+      "type": "node",
+      "id": 900000000000,
+      "tags": {
+        "name": "Allworth Financial",
+        "addr:city": "Bel Air",
+        "addr:state": "MD",
+        "addr:postcode": "21015",
+        "addr:street": "2015 Emmorton Rd Ste 101",
+        "website": "https://allworthfinancial.com/find-a-location/bel-air",
+        "phone": "410-515-6310",
+        "office": "financial_advisor",
+        "source:url": "https://allworthfinancial.com/find-a-location/bel-air"
+      },
+      "niches": [
+        "Financial advisors"
+      ],
+      "sourceAgreement": [
+        "Verified public business listing"
+      ],
+      "verifiedAt": "2026-11-03"
+    },
+    {
+      "type": "node",
+      "id": 900000000001,
+      "tags": {
+        "name": "Aaron M Stephenson - Edward Jones",
+        "addr:city": "Bel Air",
+        "addr:state": "MD",
+        "addr:postcode": "21015",
+        "addr:street": "2225 Old Emmorton Rd Ste 209",
+        "website": "https://www.edwardjones.com/us-en/financial-advisor/aaron-stephenson",
+        "phone": "410-569-2567",
+        "office": "financial_advisor",
+        "source:url": "https://www.edwardjones.com/us-en/financial-advisor/aaron-stephenson"
+      },
+      "niches": [
+        "Financial advisors"
+      ],
+      "sourceAgreement": [
+        "Verified public business listing"
+      ],
+      "verifiedAt": "2026-11-03"
+    },
+    {
+      "type": "node",
+      "id": 900000000002,
+      "tags": {
+        "name": "Hugh McCarthy - Edward Jones",
+        "addr:city": "Bel Air",
+        "addr:state": "MD",
+        "addr:postcode": "21015",
+        "addr:street": "2107 Laurel Bush Rd Ste 205",
+        "website": "https://www.edwardjones.com/us-en/financial-advisor/hugh-mccarthy",
+        "phone": "",
+        "office": "financial_advisor",
+        "source:url": "https://www.edwardjones.com/us-en/financial-advisor/hugh-mccarthy"
+      },
+      "niches": [
+        "Financial advisors"
+      ],
+      "sourceAgreement": [
+        "Verified public business listing"
+      ],
+      "verifiedAt": "2026-11-03"
+    },
+    {
+      "type": "node",
+      "id": 900000000003,
+      "tags": {
+        "name": "Mark Miller - Ameriprise Financial",
+        "addr:city": "Bel Air",
+        "addr:state": "MD",
+        "addr:postcode": "21015",
+        "addr:street": "1614 E Churchville Rd Ste 101A",
+        "website": "https://www.ameripriseadvisors.com/mark.a.miller/contact/",
+        "phone": "410-638-6389",
+        "office": "financial_advisor",
+        "source:url": "https://www.ameripriseadvisors.com/mark.a.miller/contact/"
+      },
+      "niches": [
+        "Financial advisors"
+      ],
+      "sourceAgreement": [
+        "Verified public business listing"
+      ],
+      "verifiedAt": "2026-11-03"
+    },
+    {
+      "type": "node",
+      "id": 900000000004,
+      "tags": {
+        "name": "DouglasBradley LLC",
+        "addr:city": "Bel Air",
+        "addr:state": "MD",
+        "addr:postcode": "21015",
+        "addr:street": "522 Inglewood Rd",
+        "website": "https://douglasbradley.com/",
+        "phone": "443-451-1884",
+        "office": "financial_advisor",
+        "source:url": "https://douglasbradley.com/"
+      },
+      "niches": [
+        "Financial advisors"
+      ],
+      "sourceAgreement": [
+        "Verified public business listing"
+      ],
+      "verifiedAt": "2026-11-03"
+    },
+    {
+      "type": "node",
+      "id": 900000000005,
+      "tags": {
+        "name": "SCO Wealth Management",
+        "addr:city": "Bel Air",
+        "addr:state": "MD",
+        "addr:postcode": "21015",
+        "addr:street": "1614 E Churchville Rd Suite 104",
+        "website": "https://business.harfordchamber.org/list/ql/finance-insurance-10",
+        "phone": "443-819-0870",
+        "office": "financial_advisor",
+        "source:url": "https://business.harfordchamber.org/list/ql/finance-insurance-10"
+      },
+      "niches": [
+        "Financial advisors"
+      ],
+      "sourceAgreement": [
+        "Verified public business listing"
+      ],
+      "verifiedAt": "2026-11-03"
+    },
+    {
+      "type": "node",
+      "id": 900000000006,
+      "tags": {
+        "name": "Wells Fargo Advisors - Bel Air",
+        "addr:city": "Bel Air",
+        "addr:state": "MD",
+        "addr:postcode": "21014",
+        "addr:street": "2 South Main Street",
+        "website": "https://home.wellsfargoadvisors.com/001_a577",
+        "phone": "410-638-9333",
+        "office": "financial_advisor",
+        "source:url": "https://home.wellsfargoadvisors.com/001_a577"
+      },
+      "niches": [
+        "Financial advisors"
+      ],
+      "sourceAgreement": [
+        "Verified public business listing"
+      ],
+      "verifiedAt": "2026-11-03"
+    },
+    {
+      "type": "node",
+      "id": 900000000007,
+      "tags": {
+        "name": "Stifel - Bel Air",
+        "addr:city": "Bel Air",
+        "addr:state": "MD",
+        "addr:postcode": "21014",
+        "addr:street": "115 North Main Suite A",
+        "website": "https://www.stifel.com/branch/md/bel-air",
+        "phone": "",
+        "office": "financial_advisor",
+        "source:url": "https://www.stifel.com/branch/md/bel-air"
+      },
+      "niches": [
+        "Financial advisors"
+      ],
+      "sourceAgreement": [
+        "Verified public business listing"
+      ],
+      "verifiedAt": "2026-11-03"
+    },
+    {
+      "type": "node",
+      "id": 900000000008,
+      "tags": {
+        "name": "Merrill Lynch Wealth Management - Bel Air",
+        "addr:city": "Bel Air",
+        "addr:state": "MD",
+        "addr:postcode": "21014",
+        "addr:street": "39 Churchville Rd",
+        "website": "https://advisor.ml.com/sites/md/bel-air-md",
+        "phone": "410-420-6020",
+        "office": "financial_advisor",
+        "source:url": "https://advisor.ml.com/sites/md/bel-air-md"
+      },
+      "niches": [
+        "Financial advisors"
+      ],
+      "sourceAgreement": [
+        "Verified public business listing"
+      ],
+      "verifiedAt": "2026-11-03"
+    },
+    {
+      "type": "node",
+      "id": 900000000009,
+      "tags": {
+        "name": "Silvestri Financial & Tax Advisors",
+        "addr:city": "Bel Air",
+        "addr:state": "MD",
+        "addr:postcode": "21014",
+        "addr:street": "1212 E Churchville Rd Suite 201",
+        "website": "https://business.harfordchamber.org/list/ql/finance-insurance-10",
+        "phone": "410-937-7972",
+        "office": "financial_advisor",
+        "source:url": "https://business.harfordchamber.org/list/ql/finance-insurance-10"
+      },
+      "niches": [
+        "Financial advisors"
+      ],
+      "sourceAgreement": [
+        "Verified public business listing"
+      ],
+      "verifiedAt": "2026-11-03"
+    }
+  ]
+}
