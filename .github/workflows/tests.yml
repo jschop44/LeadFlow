@@ -37,6 +37,35 @@ jobs:
             if((counts[niche]||0)<10)throw Error('Missing expected Maryland niche coverage: '+niche);
           }
           NODE
+      - name: Live company website enrichment smoke test (external dependency)
+        continue-on-error: true
+        run: |
+          PORT=10000 API_TOKEN=ci-live-check node backend/server.js > /tmp/leadflow-enrichment.log 2>&1 &
+          echo $! > /tmp/leadflow-enrichment.pid
+          sleep 3
+          node --input-type=module <<'NODE'
+          const sites=['https://www.mozilla.org','https://www.python.org','https://www.apache.org'];
+          let reachable=0;
+          for(const website of sites){
+            try{
+              const response=await fetch('http://127.0.0.1:10000/enrich',{
+                method:'POST',
+                headers:{'content-type':'application/json','x-leadflow-token':'ci-live-check'},
+                body:JSON.stringify({website}),
+                signal:AbortSignal.timeout(90000)
+              });
+              const data=await response.json();
+              const summary={website,status:response.status,pages:data.sources?.length||0,people:data.people?.length||0,phones:data.phones?.length||0,emails:data.emails?.length||0,error:data.error||null};
+              console.log(JSON.stringify(summary));
+              if(response.ok&&summary.pages>0){
+                reachable++;
+                for(const person of data.people||[])if(!person.source||!person.name||!person.role)throw Error('Leadership without evidence');
+              }
+            }catch(error){console.error(website,error.message)}
+          }
+          if(!reachable)throw Error('No live company website could be enriched; inspect network/robots diagnostics');
+          NODE
+          kill $(cat /tmp/leadflow-enrichment.pid) || true
       - name: Verify local Maryland search end-to-end
         run: |
           PORT=18080 node backend/server.js > /tmp/leadflow-server.log 2>&1 &
