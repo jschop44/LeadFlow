@@ -149,8 +149,24 @@ window.leadflowOpenSocial=()=>{if(!selectedDraftLead){$('outreach-note').textCon
 let emailSession='',emailProvider='';
 const emailApi='https://leadflow-research-api.onrender.com';
 function emailConnectionUI(){ $('email-connection').textContent=emailSession?'Connected: '+emailProvider:'Email not connected';$('disconnect-email').disabled=!emailSession;$('send-connected').disabled=false }
-$('connect-gmail').onclick=()=>{window.location.assign(emailApi+'/oauth/start?provider=google')};
-$('connect-microsoft').onclick=()=>{window.location.assign(emailApi+'/oauth/start?provider=microsoft')};
+async function startEmailConnection(provider){
+ const label=provider==='google'?'Gmail':'Microsoft 365';
+ $('outreach-note').textContent='Checking '+label+' authorization setup...';
+ try{
+  const response=await fetch(emailApi+'/health',{signal:AbortSignal.timeout(8000)});
+  if(response.ok){
+   const health=await response.json();
+   if(health.oauthProviders&&health.oauthProviders[provider]===false){
+    $('outreach-note').textContent=label+' sign-in cannot start yet: the provider OAuth client ID and secret are not configured on the LeadFlow API. Configure the provider app in Google Cloud or Microsoft Entra and add its credentials to Render. Redirect URI: '+emailApi+'/oauth/callback';
+    $('outreach-note').scrollIntoView({behavior:'smooth',block:'center'});
+    return;
+   }
+  }
+ }catch(e){$('outreach-note').textContent='Could not check provider readiness; attempting sign-in directly.'}
+ window.location.assign(emailApi+'/oauth/start?provider='+provider);
+}
+$('connect-gmail').onclick=()=>startEmailConnection('google');
+$('connect-microsoft').onclick=()=>startEmailConnection('microsoft');
 $('disconnect-email').onclick=async()=>{if(emailSession)await fetch(emailApi+'/oauth/disconnect',{method:'POST',headers:{authorization:'Bearer '+emailSession}}).catch(()=>{});emailSession='';emailProvider='';emailConnectionUI()};
 (async()=>{const errorMatch=location.hash.match(/^#oauth-error=(.+)$/);if(errorMatch){history.replaceState(null,'',location.pathname+location.search);let message='Email connection unavailable';try{message=decodeURIComponent(errorMatch[1])}catch{}$('outreach-note').textContent=message.includes('credentials are not configured')?'Email connection setup required: '+message+'. Register the provider OAuth app and configure its client ID and secret in the backend.':'Email connection failed: '+message;$('outreach-note').scrollIntoView({behavior:'smooth',block:'center'});return}const match=location.hash.match(/^#oauth-ticket=(.+)$/);if(!match)return;history.replaceState(null,'',location.pathname+location.search);try{const response=await fetch(emailApi+'/oauth/exchange',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ticket:decodeURIComponent(match[1])})});const result=await response.json();if(!response.ok)throw Error(result.error||'Connection failed');emailSession=result.session;emailProvider=result.provider;emailConnectionUI();$('outreach-note').textContent='Email connected securely for this browser tab. Select a lead and generate an email.'}catch(e){$('outreach-note').textContent='Email connection failed: '+e.message}})();
 $('send-connected').onclick=async()=>{
