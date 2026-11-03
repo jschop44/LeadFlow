@@ -189,28 +189,40 @@ async function loadOnlineCatalog(){await catalogStore.init();catalogReady=true}
 let catalogWrite=Promise.resolve();
 function saveOnlineCatalog(){return Promise.all([...onlineCatalog.values()].map(row=>catalogStore.save(row)))}
 let discoveryNicheIndex=0;
+const discoveryTerms={
+ 'Financial advisors':'wealth management firm','Real estate agents':'real estate company','Accountants':'accounting firm',
+ 'Insurance agencies':'insurance company','Business coaches':'business coaching company','Marketing agencies':'digital marketing agency',
+ 'Fitness coaches':'online fitness company','Dental practices':'dental care company','Med spas':'skin care company',
+ 'Nutritionists':'nutrition company','Chiropractors':'chiropractic company','Wellness clinics':'wellness company',
+ 'Dating coaches':'dating coaching company','Matchmakers':'matchmaking company','Couples counselors':'online therapy company',
+ 'Wedding planners':'wedding planning company','Relationship coaches':'relationship coaching company'
+};
 async function discoverNationwideCandidates(){
- const niches=Object.keys(onlineNicheTerms),niche=niches[discoveryNicheIndex++%niches.length];
- const pattern=onlineNicheTerms[niche];
- // Discovery runs asynchronously, never in the user request. US country evidence is explicit.
- // Restrict Wikidata to US organizations with a website before matching niche locally.
- const query='SELECT DISTINCT ?company ?companyLabel ?website ?description WHERE { ?company wdt:P17 wd:Q30; wdt:P856 ?website . OPTIONAL { ?company schema:description ?description FILTER(LANG(?description)="en") } SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } LIMIT 150';
+ const niches=Object.keys(discoveryTerms),niche=niches[discoveryNicheIndex++%niches.length];
  try{
-  const endpoint='https://query.wikidata.org/sparql?format=json&query='+encodeURIComponent(query);
-  const response=await fetchJSON(endpoint,{signal:AbortSignal.timeout(20000),headers:{accept:'application/sparql-results+json','user-agent':'LeadFlowResearch/1.0 (public business directory)'}});
-  const entries=(response?.results?.bindings||[]).filter(item=>new RegExp(pattern,'i').test((item.companyLabel?.value||'')+' '+(item.description?.value||'')));
-  let saved=0;
-  for(const item of entries){
-   if(saved>=8)break;
-   const website=item.website?.value,domain=catalogDomain(website),name=item.companyLabel?.value;
-   if(!domain||!name||name.startsWith('http')||onlineCatalog.has(domain))continue;
-   const result=await inspectBusinessWebsite(website);
-   if(result.classification!=='Online')continue;
-   const element={type:'node',id:'wikidata-'+domain,tags:{name,website},classification:'Online',platform:result.platform,classificationEvidence:result.classificationEvidence,usEvidence:'Wikidata country: United States',sourceAgreement:['Wikidata US country statement','Public website inspection']};
-   const row={domain,niches:[niche],checkedAt:Date.now(),classification:'Online',platform:result.platform,evidence:result.classificationEvidence,usEvidence:element.usEvidence,element};
-   onlineCatalog.set(domain,row);await catalogStore.save(row);saved++;
+  // Wikimedia's indexed search is intended for keyword discovery; SPARQL is not.
+  const params=new URLSearchParams({action:'query',generator:'search',gsrsearch:discoveryTerms[niche],gsrnamespace:'0',gsrlimit:'30',prop:'info',format:'json',origin:'*'});
+  const search=await fetchJSON('https://www.wikidata.org/w/api.php?'+params,{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlowResearch/1.0 (business discovery)'}});
+  const ids=Object.keys(search?.query?.pages||{}).map(id=>'Q'+id).filter(id=>/^Q[0-9]+$/.test(id)).slice(0,30);
+  if(!ids.length){console.log('Nationwide discovery: no candidates',niche);return}
+  const entities=await fetchJSON('https://www.wikidata.org/w/api.php?'+new URLSearchParams({action:'wbgetentities',ids:ids.join('|'),props:'claims|labels|descriptions',languages:'en',format:'json'}),{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlowResearch/1.0 (business discovery)'}});
+  let verified=0;
+  for(const entity of Object.values(entities?.entities||{})){
+   if(verified>=8)break;
+   const claims=entity.claims||{};
+   const us=claims.P17?.some(c=>c.mainsnak?.datavalue?.value?.id==='Q30')||claims.P159?.some(c=>c.mainsnak?.datavalue?.value?.id==='Q30');
+   if(!us)continue;
+   const website=claims.P856?.map(c=>c.mainsnak?.datavalue?.value).find(v=>typeof v==='string'&&/^https?:\/\//.test(v));
+   const domain=catalogDomain(website),name=entity.labels?.en?.value;
+   if(!domain||!name||onlineCatalog.has(domain))continue;
+   const info=await inspectBusinessWebsite(website);
+   if(info.classification!=='Online')continue;
+   const evidence='Wikidata US country statement and public website inspection';
+   const element={type:'node',id:entity.id,tags:{name,website},classification:'Online',platform:info.platform,classificationEvidence:info.classificationEvidence,usEvidence:evidence};
+   const row={domain,niches:[niche],checkedAt:Date.now(),classification:'Online',platform:info.platform,evidence:info.classificationEvidence,usEvidence:evidence,element};
+   await catalogStore.save(row);verified++;
   }
-  console.log('Nationwide discovery',JSON.stringify({niche,candidates:entries.length,verified:saved}));
+  console.log('Nationwide discovery',JSON.stringify({niche,candidates:ids.length,verified}));
  }catch(e){console.warn('Nationwide discovery skipped:',niche,e.message)}
 }
 async function refreshOnlineCatalog(){
