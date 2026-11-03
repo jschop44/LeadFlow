@@ -19,3 +19,10 @@ test('rejects ungrounded people and arbitrary external entity URLs',()=>{
  const bad=make('https://example.com','Jane Smith','CEO');bad.person.value='https://evil.example/Q456';
  assert.equal(verifiedWikidataPeople([bad],'https://example.com').length,0);
 });
+
+test('accepts Wikidata SPARQL HTTP entity identifiers',()=>{
+ const row=make('https://example.com');
+ row.item.value='http://www.wikidata.org/entity/Q123';
+ row.person.value='http://www.wikidata.org/entity/Q456';
+ assert.equal(verifiedWikidataPeople([row],'https://example.com').length,1);
+});
