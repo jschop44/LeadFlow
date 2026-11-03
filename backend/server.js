@@ -179,19 +179,45 @@ async function classifyElements(elements){
  return output;
 }
 
+const ONLINE_CATALOG_FILE=join(STORE_DIR,'online-catalog.json');
+const onlineCatalog=new Map();
+let catalogReady=false,catalogRefreshActive=false;
+function catalogDomain(raw){try{const u=new URL(raw);return ['http:','https:'].includes(u.protocol)?u.hostname.toLowerCase().replace(/^www\./,''):''}catch{return ''}}
+async function loadOnlineCatalog(){
+ try{const rows=JSON.parse(await readFile(ONLINE_CATALOG_FILE,'utf8'));for(const row of rows){if(row.domain&&row.element)onlineCatalog.set(row.domain,row)}}
+ catch(e){if(e.code!=='ENOENT')console.warn('Online catalog load:',e.message)}
+ catalogReady=true;
+}
+let catalogWrite=Promise.resolve();
+function saveOnlineCatalog(){catalogWrite=catalogWrite.then(async()=>{await mkdir(STORE_DIR,{recursive:true});const tmp=ONLINE_CATALOG_FILE+'.tmp';await writeFile(tmp,JSON.stringify([...onlineCatalog.values()].slice(-10000)));await rename(tmp,ONLINE_CATALOG_FILE)}).catch(e=>console.warn('Online catalog save:',e.message));return catalogWrite}
+async function refreshOnlineCatalog(){
+ if(catalogRefreshActive)return;
+ catalogRefreshActive=true;
+ try{
+  const rows=[...businessIndex.values()].filter(v=>v.element?.tags?.website||v.element?.tags?.['contact:website']);
+  let inspected=0,changed=0;
+  for(const row of rows){
+   if(inspected>=20)break;
+   const el=row.element,t=el.tags||{},website=t.website||t['contact:website'],domain=catalogDomain(website);
+   if(!domain)continue;
+   const previous=onlineCatalog.get(domain);
+   if(previous&&Date.now()-previous.checkedAt<7*86400000)continue;
+   inspected++;
+   const result=await inspectBusinessWebsite(website);
+   const physical=Boolean(t['addr:street']||t['addr:city']||el.lat||el.lon||el.center);
+   const classification=result.classification==='Online'?(physical?'Local + Online':'Online'):(physical?'Local':'Unverified');
+   onlineCatalog.set(domain,{domain,niches:row.niches||[],checkedAt:Date.now(),classification,platform:result.platform,evidence:result.classificationEvidence,usEvidence:'US mapped business record',element:{...el,tags:{...t,website},classification,platform:result.platform,classificationEvidence:result.classificationEvidence,usEvidence:'US mapped business record'}});
+   changed++;
+  }
+  if(changed)await saveOnlineCatalog();
+ }catch(e){console.warn('Catalog refresh failed:',e.message)}finally{catalogRefreshActive=false}
+}
 async function searchIndexedOnlineBusinesses(niche){
- const candidates=[...businessIndex.values()].filter(v=>v.niches?.includes(niche)&&Boolean(v.element?.tags?.website||v.element?.tags?.['contact:website']));
- const unique=new Set(),selected=[];
- for(const v of candidates){
-  const el=v.element,t=el.tags||{},raw=t.website||t['contact:website'];let host;
-  try{host=new URL(raw).hostname.toLowerCase().replace(/^www\./,'')}catch{continue}
-  if(unique.has(host))continue;unique.add(host);
-  selected.push({...el,tags:{...t,website:raw},sourceAgreement:v.sources||['Existing business index'],usEvidence:'US mapped business index'});
-  if(selected.length>=12)break;
- }
- const inspected=await classifyElements(selected);
- const elements=inspected.filter(el=>['Online','Local + Online'].includes(el.classification));
- return {elements,niche,source:'US business index and observed public website signals',searchStatus:elements.length?'ok':'no_verified_matches',message:elements.length?'Online activity is supported by inspected website signals. Coverage is limited to indexed US businesses.':'No online activity confirmed among the indexed businesses inspected. No physical-only listings substituted.',inspected:selected.length,availableCandidates:candidates.length};
+ const records=[...onlineCatalog.values()].filter(v=>v.niches.includes(niche)&&['Online','Local + Online'].includes(v.classification));
+ const elements=records.slice(0,100).map(v=>({...v.element,sourceAgreement:['Indexed US business','Observed public website signals']}));
+ // Refresh outside the request path. Search latency is independent of website availability.
+ void refreshOnlineCatalog();
+ return {elements,niche,source:'LeadFlow cached online catalog',searchStatus:elements.length?'ok':'no_verified_matches',catalogSize:onlineCatalog.size,checkedAt:records.length?Math.max(...records.map(v=>v.checkedAt)):null,message:elements.length?'Results are based on previously inspected public websites.':'No qualifying cached online businesses yet. The background catalog refresh is still expanding coverage.'};
 }
 async function searchOnlineBusinesses(niche){
  if(!onlineNicheTerms[niche])throw Error('Unsupported niche');
@@ -217,6 +243,7 @@ async function searchOnlineBusinesses(niche){
 function json(res,status,data,origin){res.writeHead(status,{'content-type':'application/json','access-control-allow-origin':origin===ORIGIN?ORIGIN:'null','access-control-allow-headers':'content-type, x-leadflow-token','access-control-allow-methods':'POST, OPTIONS, GET','cache-control':'no-store'});res.end(JSON.stringify(data))}
 http.createServer(async(req,res)=>{const origin=req.headers.origin||'';if(req.method==='OPTIONS'){json(res,204,{},origin);return}if(req.url==='/health'){json(res,200,{status:'ok',research:true,draft:true,sending:false,indexedBusinesses:businessIndex.size,indexReady:businessIndex.size>0,financialAdvisors:[...businessIndex.values()].filter(v=>v.niches?.includes('Financial advisors')).length,nicheCoverage:Object.fromEntries(Object.keys(nicheTags).map(n=>[n,[...businessIndex.values()].filter(v=>v.niches?.includes(n)).length])),listingProviders:['overpass.kumi.systems','overpass-api.de','overpass.private.coffee']},origin);return}if(origin&&origin!==ORIGIN){json(res,403,{error:'Origin not allowed'},origin);return}if(!['/search','/search-online'].includes(req.url)&&(!TOKEN||req.headers['x-leadflow-token']!==TOKEN)){json(res,401,{error:'API token required'},origin);return}const key=req.socket.remoteAddress||'unknown',now=Date.now(),h=(hits.get(key)||[]).filter(t=>now-t<60000);if(h.length>=LIMIT){json(res,429,{error:'Rate limit exceeded'},origin);return}h.push(now);hits.set(key,h);if(req.method!=='POST'||!['/enrich','/draft','/smart-draft','/search','/search-online'].includes(req.url)){json(res,404,{error:'Not found'},origin);return}try{let raw='';for await(const part of req){raw+=part;if(raw.length>16000)throw Error('Request too large')}const data=JSON.parse(raw);const result=req.url==='/search-online'?await searchOnlineBusinesses(data.niche):req.url==='/search'?await searchBusinesses(data.area,data.niche):req.url==='/enrich'?await research(data.website):req.url==='/smart-draft'?await smartDraft(data):draft(data);if(req.url==='/search')console.log('Business search completed',JSON.stringify({area:data.area,niche:data.niche,count:result.elements?.length||0,source:result.source,indexedBusinesses:businessIndex.size}));json(res,200,result,origin)}catch(e){console.error('API request failed',JSON.stringify({route:req.url,error:String(e.message||e)}));json(res,400,{error:String(e.message||e)},origin)}}).listen(PORT,'0.0.0.0',()=>{
  console.log('LeadFlow backend listening on '+PORT);
+ void loadOnlineCatalog().then(()=>refreshOnlineCatalog());setInterval(()=>{void refreshOnlineCatalog()},15*60*1000).unref();
  if(process.env.LEADFLOW_LIVE_DIAGNOSTICS==='1'){
   (async()=>{
    const result={check:'startup-independent-leadership',company:'https://www.microsoft.com'};
