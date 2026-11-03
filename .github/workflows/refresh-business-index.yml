@@ -21,6 +21,18 @@ jobs:
       - run: pip install osmium
       - run: curl -fL --retry 3 --max-time 600 https://download.geofabrik.de/north-america/us/maryland-latest.osm.pbf -o /tmp/maryland.osm.pbf
       - run: python scripts/build_maryland_index.py
+      - name: Validate snapshot
+        run: |
+          python - <<'PY'
+          import json
+          p='backend/data/maryland-businesses.json'
+          data=json.load(open(p))
+          records=data.get('records',[])
+          print('MARYLAND_INDEX_RECORDS='+str(len(records)))
+          print('FINANCIAL_ADVISORS='+str(sum('Financial advisors' in r.get('niches',[]) for r in records)))
+          print('BEL_AIR_POSTCODE_21015='+str(sum(r.get('tags',{}).get('addr:postcode')=='21015' for r in records)))
+          assert records, 'Snapshot must contain sourced business records'
+          PY
       - name: Commit real source records
         run: |
           git config user.name "github-actions[bot]"
