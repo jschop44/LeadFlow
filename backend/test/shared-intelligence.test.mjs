@@ -40,6 +40,13 @@ test('shared intelligence contract and isolation', async () => {
 
         const unauthorizedWrite = await post('/intelligence', {action:'feedback-sync',domain:'example.com',positive:1,negative:0}, {'x-leadflow-token':'separate-private-token'});
     assert.equal(unauthorizedWrite.status,403,'Ordinary API token must not write shared feedback');
+    const deniedProbe=await post('/intelligence',{action:'feedback-probe'},{'x-leadflow-token':'separate-private-token'});
+    assert.equal(deniedProbe.status,403,'Read-only API token must not pass feedback authorization probe');
+    const acceptedProbe=await post('/intelligence',{action:'feedback-probe'},{'x-leadflow-token':token});
+    assert.equal(acceptedProbe.status,200);
+    assert.equal(acceptedProbe.data.authorized,true);
+    assert.equal(acceptedProbe.data.feedbackWriteAccess,true);
+    assert.equal(typeof acceptedProbe.data.persistentCatalog,'boolean');
     const invalidWrite = await post('/intelligence', {action:'feedback-sync',domain:'bad..domain',positive:1,negative:0}, {'x-leadflow-token':token});
     assert.equal(invalidWrite.status,200);
     assert.equal(invalidWrite.data.accepted,false);
