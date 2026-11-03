@@ -302,9 +302,9 @@ const productKeywordGroups=[
 ];
 function productGroup(query){return productKeywordGroups.find(g=>g.terms.some(t=>query.includes(t)||t.includes(query)&&query.length>=5))}
 async function lookupMerchantDomain(raw){
- const cleaned=String(raw||'').trim().replace(/^https?:\\/\\//i,'').replace(/\\/.*$/,'').toLowerCase();
- if(!/^(?:[a-z0-9-]+\\.)+[a-z]{2,}$/.test(cleaned)||cleaned.length>253)throw Error('Enter a valid business website domain');
- const domain=cleaned.replace(/^www\\./,'');
+ const cleaned=String(raw||'').trim().replace(/^https?:\/\//i,'').replace(/\/.*$/,'').toLowerCase();
+ if(!/^(?:[a-z0-9-]+\.)+[a-z]{2,}$/.test(cleaned)||cleaned.length>253)throw Error('Enter a valid business website domain');
+ const domain=cleaned.replace(/^www\./,'');
  const existing=onlineCatalog.get(domain);
  if(existing&&['Online','Local + Online'].includes(existing.classification)){
   return {elements:[existing.element],niche:domain,source:'Direct website lookup',searchStatus:'ok',catalogSize:onlineCatalog.size};
@@ -324,7 +324,7 @@ async function lookupMerchantDomain(raw){
 }
 async function searchProductKeyword(raw){
  const rawInput=String(raw||'').trim();
- if(/^(?:https?:\\/\\/)?(?:www\\.)?[a-z0-9-]+(?:\\.[a-z0-9-]+)+\\/?$/i.test(rawInput))return lookupMerchantDomain(rawInput);
+ if(/^(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+\/?$/i.test(rawInput))return lookupMerchantDomain(rawInput);
  const query=normalizeProductQuery(raw);
  if(query.length<3)throw Error('Enter at least three characters for a product search');
  const group=productGroup(query);
