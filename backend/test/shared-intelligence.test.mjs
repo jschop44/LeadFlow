@@ -47,6 +47,9 @@ test('shared intelligence contract and isolation', async () => {
       assert.equal(typeof lead.website, 'string');
       assert.ok(Number.isFinite(lead.score));
       assert.ok(lead.score >= 0 && lead.score <= 100);
+         assert.ok(['recent','stale','unknown'].includes(lead.evidenceStatus));
+         assert.equal(lead.needsRefresh, lead.evidenceStatus !== 'recent');
+         assert.ok(lead.ageDays === null || Number.isInteger(lead.ageDays) && lead.ageDays >= 0);
       assert.ok(['Online', 'Local + Online'].includes(lead.classification));
       assert.equal(typeof lead.evidence, 'string');
     }
