@@ -78,6 +78,10 @@ test('shared intelligence contract and isolation', async () => {
       assert.equal(typeof lead.website, 'string');
       assert.ok(Number.isFinite(lead.score));
       assert.ok(lead.score >= 0 && lead.score <= 100);
+      assert.ok(Number.isInteger(lead.priorityScore) && lead.priorityScore>=0 && lead.priorityScore<=100);
+      assert.ok(Number.isInteger(lead.feedbackAdjustment) && Math.abs(lead.feedbackAdjustment)<=4);
+      assert.equal(lead.priorityScore,Math.max(0,Math.min(100,lead.score+lead.feedbackAdjustment)));
+      assert.ok(lead.feedbackEvidenceType===null || lead.feedbackEvidenceType==='user_reported_unverified');
          assert.ok(['recent','stale','unknown'].includes(lead.evidenceStatus));
          assert.equal(lead.needsRefresh, lead.evidenceStatus !== 'recent');
          assert.ok([0,5,15].includes(lead.freshnessPenalty));
