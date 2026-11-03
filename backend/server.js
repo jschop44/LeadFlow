@@ -29,6 +29,7 @@ function mergeSources(osm,other){const merged=osm.map(x=>({...x,sourceAgreement:
 const STORE_DIR=process.env.LEADFLOW_DATA_DIR||'/tmp/leadflow-data'; // Render free instances have ephemeral filesystems
 const STORE_FILE=join(STORE_DIR,'business-index.json');
 const SNAPSHOT_FILE=join(dirname(fileURLToPath(import.meta.url)),'data','maryland-businesses.json');
+const SNAPSHOT_URL=process.env.LEADFLOW_INDEX_URL||'https://raw.githubusercontent.com/jschop44/LeadFlow/main/backend/data/maryland-businesses.json';
 const businessIndex=new Map();
 let persistPending=Promise.resolve();
 function recordKey(x){const t=x.tags||{};const name=cleanName(t.name);const lat=Number(x.lat??x.center?.lat),lon=Number(x.lon??x.center?.lon);return name+'|'+(Number.isFinite(lat)?lat.toFixed(2):'')+'|'+(Number.isFinite(lon)?lon.toFixed(2):'')}
@@ -52,6 +53,25 @@ function indexedResults(area,niche){
 }
 await loadIndex();
 try{const snapshot=JSON.parse(await readFile(SNAPSHOT_FILE,'utf8'));for(const item of snapshot.records||[]){const id=recordKey(item);if(!businessIndex.has(id))businessIndex.set(id,{element:item,sources:item.sourceAgreement||['OpenStreetMap Geofabrik Maryland extract'],areas:[String(item.tags?.['addr:city']||'').toLowerCase(),String(item.tags?.['addr:postcode']||'').toLowerCase(),'maryland'],niches:item.niches||[],updatedAt:Date.now()})}console.log('Loaded Maryland source snapshot:',snapshot.records?.length||0)}catch(e){if(e.code!=='ENOENT')console.warn('Maryland source snapshot unavailable:',e.message)}
+async function refreshSourceSnapshot(){
+ try{
+  const response=await fetch(SNAPSHOT_URL,{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlow/1.0 business-index-loader'}});
+  if(!response.ok)throw Error('HTTP '+response.status);
+  const data=await response.json();
+  if(!Array.isArray(data.records)||!data.records.length)throw Error('Empty source snapshot');
+  let added=0;
+  for(const item of data.records){
+   if(!item.tags?.name||!item.niches?.length)continue;
+   const id=recordKey(item);
+   if(businessIndex.has(id))continue;
+   businessIndex.set(id,{element:item,sources:item.sourceAgreement||['OpenStreetMap'],areas:[String(item.tags['addr:city']||'').toLowerCase(),String(item.tags['addr:postcode']||'').toLowerCase(),'maryland'],niches:item.niches,updatedAt:Date.now()});
+   added++;
+  }
+  console.log('Remote Maryland index refreshed',JSON.stringify({records:data.records.length,added,total:businessIndex.size}));
+ }catch(e){console.warn('Remote index refresh skipped:',e.message)}
+}
+if(businessIndex.size===0)await refreshSourceSnapshot();
+setInterval(refreshSourceSnapshot,6*60*60*1000).unref();
 const searchCache=new Map();
 const nicheTags={'Financial advisors':'["office"~"financial_advisor|financial|investment|insurance"]','Real estate agents':'["office"="estate_agent"]','Accountants':'["office"="accountant"]','Insurance agencies':'["office"="insurance"]','Business coaches':'["office"="consulting"]','Marketing agencies':'["office"="advertising"]','Fitness coaches':'["leisure"="fitness_centre"]','Dental practices':'["amenity"="dentist"]','Med spas':'["beauty"="spa"]','Nutritionists':'["healthcare"="nutrition_counselling"]','Chiropractors':'["healthcare"="chiropractor"]','Wellness clinics':'["healthcare"="clinic"]','Dating coaches':'["office"="consulting"]','Matchmakers':'["office"="consulting"]','Couples counselors':'["healthcare"="psychotherapist"]','Wedding planners':'["office"="event_planner"]','Relationship coaches':'["office"="consulting"]'};
 async function fetchJSON(url,options={}){const r=await fetch(url,{...options,signal:AbortSignal.timeout(18000),headers:{'user-agent':'LeadFlowBusinessDiscovery/1.0 (contact: leadflow project)','accept':'application/json',...(options.headers||{})}});if(!r.ok)throw Error('Public listing provider returned '+r.status);return r.json()}
