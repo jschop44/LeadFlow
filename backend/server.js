@@ -258,7 +258,9 @@ const productMerchantSources={
   {name:'iRESTORE',website:'https://www.irestorelaser.com/'},
   {name:'Hooga',website:'https://hoogahealth.com/'},
   {name:'Mito Red Light',website:'https://mitoredlight.com/'}
- ]
+ ],
+ 'Sauna blankets':[{name:'HigherDOSE',website:'https://higherdose.com/'}],
+ 'Skin-care devices':[{name:'CurrentBody',website:'https://www.currentbody.com/'}]
 };
 const productSeedRefresh=new Map();
 async function verifyProductMerchants(niche){
@@ -292,6 +294,34 @@ async function searchIndexedOnlineBusinesses(niche){
  void refreshOnlineCatalog();
  return {elements,niche,source:'LeadFlow cached online catalog',searchStatus:elements.length?'ok':'no_verified_matches',catalogSize:onlineCatalog.size,checkedAt:records.length?Math.max(...records.map(v=>v.checkedAt)):null,message:elements.length?'Results are based on previously inspected public websites.':'No qualifying cached online businesses yet. The background catalog refresh is still expanding coverage.'};
 }
+function normalizeProductQuery(value){return String(value||'').toLowerCase().trim().replace(/[^a-z0-9 -]/g,' ').replace(/\\s+/g,' ').slice(0,90)}
+const productKeywordGroups=[
+ {terms:['red light therapy','red light','photobiomodulation','infrared therapy','hair growth laser'],niche:'Red light therapy devices'},
+ {terms:['sauna blanket','infrared sauna blanket'],niche:'Sauna blankets'},
+ {terms:['skin care device','skincare device','led face mask','facial device'],niche:'Skin-care devices'}
+];
+function productGroup(query){return productKeywordGroups.find(g=>g.terms.some(t=>query.includes(t)||t.includes(query)&&query.length>=5))}
+async function searchProductKeyword(raw){
+ const query=normalizeProductQuery(raw);
+ if(query.length<3)throw Error('Enter at least three characters for a product search');
+ const group=productGroup(query);
+ if(group&&productMerchantSources[group.niche])await verifyProductMerchants(group.niche);
+ const tokens=query.split(' ').filter(w=>w.length>2);
+ const records=[...onlineCatalog.values()].filter(r=>['Online','Local + Online'].includes(r.classification));
+ const direct=records.filter(r=>group&&r.niches?.includes(group.niche));
+ const matches=[...direct];
+ // Only match additional catalog records when the public storefront itself mentions the product.
+ const candidates=records.filter(r=>!direct.includes(r)).slice(0,18);
+ await Promise.all(candidates.map(async r=>{
+  try{const html=(await get(r.element?.tags?.website||'')).toLowerCase().replace(/<[^>]*>/g,' ').replace(/\\s+/g,' ');
+   if(tokens.every(t=>html.includes(t)))matches.push(r)
+  }catch{}
+ }));
+ const unique=[...new Map(matches.map(r=>[r.domain,r])).values()].slice(0,100);
+ return {elements:unique.map(r=>({...r.element,sourceAgreement:['Inspected online storefront','Product keyword match']})),
+  niche:query,source:'LeadFlow product keyword search',searchStatus:unique.length?'ok':'no_verified_matches',
+  catalogSize:onlineCatalog.size,message:unique.length?'Matching storefronts from inspected public websites.':'No verified storefront matches yet. This search covers the current catalog and does not claim to index every Shopify store.'};
+}
 async function searchOnlineBusinesses(niche){
  if(!onlineNicheTerms[niche])throw Error('Unsupported niche');
  if(productMerchantSources[niche])await verifyProductMerchants(niche);
@@ -315,7 +345,7 @@ async function searchOnlineBusinesses(niche){
  onlineCache.set(niche,{at:Date.now(),result});return result;
 }
 function json(res,status,data,origin){res.writeHead(status,{'content-type':'application/json','access-control-allow-origin':origin===ORIGIN?ORIGIN:'null','access-control-allow-headers':'content-type, x-leadflow-token','access-control-allow-methods':'POST, OPTIONS, GET','cache-control':'no-store'});res.end(JSON.stringify(data))}
-http.createServer(async(req,res)=>{const origin=req.headers.origin||'';if(req.method==='OPTIONS'){json(res,204,{},origin);return}if(req.url==='/health'){json(res,200,{status:'ok',research:true,draft:true,sending:false,indexedBusinesses:businessIndex.size,onlineCatalog:{...catalogStore.health(),verifiedOnline:[...onlineCatalog.values()].filter(v=>v.classification==='Online').length},onlineCatalogRefreshing:catalogRefreshActive,indexReady:businessIndex.size>0,financialAdvisors:[...businessIndex.values()].filter(v=>v.niches?.includes('Financial advisors')).length,nicheCoverage:Object.fromEntries(Object.keys(nicheTags).map(n=>[n,[...businessIndex.values()].filter(v=>v.niches?.includes(n)).length])),listingProviders:['overpass.kumi.systems','overpass-api.de','overpass.private.coffee']},origin);return}if(origin&&origin!==ORIGIN){json(res,403,{error:'Origin not allowed'},origin);return}if(!['/search','/search-online'].includes(req.url)&&(!TOKEN||req.headers['x-leadflow-token']!==TOKEN)){json(res,401,{error:'API token required'},origin);return}const key=req.socket.remoteAddress||'unknown',now=Date.now(),h=(hits.get(key)||[]).filter(t=>now-t<60000);if(h.length>=LIMIT){json(res,429,{error:'Rate limit exceeded'},origin);return}h.push(now);hits.set(key,h);if(req.method!=='POST'||!['/enrich','/draft','/smart-draft','/search','/search-online'].includes(req.url)){json(res,404,{error:'Not found'},origin);return}try{let raw='';for await(const part of req){raw+=part;if(raw.length>16000)throw Error('Request too large')}const data=JSON.parse(raw);const result=req.url==='/search-online'?await searchOnlineBusinesses(data.niche):req.url==='/search'?await searchBusinesses(data.area,data.niche):req.url==='/enrich'?await research(data.website):req.url==='/smart-draft'?await smartDraft(data):draft(data);if(req.url==='/search')console.log('Business search completed',JSON.stringify({area:data.area,niche:data.niche,count:result.elements?.length||0,source:result.source,indexedBusinesses:businessIndex.size}));json(res,200,result,origin)}catch(e){console.error('API request failed',JSON.stringify({route:req.url,error:String(e.message||e)}));json(res,400,{error:String(e.message||e)},origin)}}).listen(PORT,'0.0.0.0',()=>{
+http.createServer(async(req,res)=>{const origin=req.headers.origin||'';if(req.method==='OPTIONS'){json(res,204,{},origin);return}if(req.url==='/health'){json(res,200,{status:'ok',research:true,draft:true,sending:false,indexedBusinesses:businessIndex.size,onlineCatalog:{...catalogStore.health(),verifiedOnline:[...onlineCatalog.values()].filter(v=>v.classification==='Online').length},onlineCatalogRefreshing:catalogRefreshActive,indexReady:businessIndex.size>0,financialAdvisors:[...businessIndex.values()].filter(v=>v.niches?.includes('Financial advisors')).length,nicheCoverage:Object.fromEntries(Object.keys(nicheTags).map(n=>[n,[...businessIndex.values()].filter(v=>v.niches?.includes(n)).length])),listingProviders:['overpass.kumi.systems','overpass-api.de','overpass.private.coffee']},origin);return}if(origin&&origin!==ORIGIN){json(res,403,{error:'Origin not allowed'},origin);return}if(!['/search','/search-online'].includes(req.url)&&(!TOKEN||req.headers['x-leadflow-token']!==TOKEN)){json(res,401,{error:'API token required'},origin);return}const key=req.socket.remoteAddress||'unknown',now=Date.now(),h=(hits.get(key)||[]).filter(t=>now-t<60000);if(h.length>=LIMIT){json(res,429,{error:'Rate limit exceeded'},origin);return}h.push(now);hits.set(key,h);if(req.method!=='POST'||!['/enrich','/draft','/smart-draft','/search','/search-online'].includes(req.url)){json(res,404,{error:'Not found'},origin);return}try{let raw='';for await(const part of req){raw+=part;if(raw.length>16000)throw Error('Request too large')}const data=JSON.parse(raw);const result=req.url==='/search-online'?(data.productKeyword?await searchProductKeyword(data.productKeyword):await searchOnlineBusinesses(data.niche)):req.url==='/search'?await searchBusinesses(data.area,data.niche):req.url==='/enrich'?await research(data.website):req.url==='/smart-draft'?await smartDraft(data):draft(data);if(req.url==='/search')console.log('Business search completed',JSON.stringify({area:data.area,niche:data.niche,count:result.elements?.length||0,source:result.source,indexedBusinesses:businessIndex.size}));json(res,200,result,origin)}catch(e){console.error('API request failed',JSON.stringify({route:req.url,error:String(e.message||e)}));json(res,400,{error:String(e.message||e)},origin)}}).listen(PORT,'0.0.0.0',()=>{
  console.log('LeadFlow backend listening on '+PORT);
  void loadOnlineCatalog().then(()=>refreshOnlineCatalog());setInterval(()=>{void refreshOnlineCatalog()},15*60*1000).unref();
  if(process.env.LEADFLOW_LIVE_DIAGNOSTICS==='1'){
