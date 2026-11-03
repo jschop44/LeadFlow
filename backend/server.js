@@ -335,7 +335,7 @@ async function searchProductKeyword(raw){
  const direct=records.filter(r=>group&&r.niches?.includes(group.niche));
  const matches=[...direct];
  // Only match additional catalog records when the public storefront itself mentions the product.
- const candidates=records.filter(r=>!direct.includes(r)).slice(0,18);
+ const candidates=records.filter(r=>!direct.includes(r)).slice(0,60);
  await Promise.all(candidates.map(async r=>{
   try{const html=(await get(r.element?.tags?.website||'')).toLowerCase().replace(/<[^>]*>/g,' ').replace(/\s+/g,' ');
    if(tokens.every(t=>html.includes(t)))matches.push(r)
