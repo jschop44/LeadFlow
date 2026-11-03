@@ -52,6 +52,9 @@ test('shared intelligence contract and isolation', async () => {
     const excessiveCounts = await post('/intelligence', {action:'feedback-sync',domain:'example.com',positive:26,negative:0}, {'x-leadflow-token':token});
     assert.equal(excessiveCounts.data.reason,'invalid_counts','Feedback volume must remain bounded');
 
+        const invalidFraction = await post('/intelligence', {action:'feedback-sync',domain:'example.com',positive:1.5,negative:0}, {'x-leadflow-token':token});
+    assert.equal(invalidFraction.data.reason,'invalid_counts');
+
     const authorized = await post('/intelligence', {query: '', limit: 3},
       {'x-leadflow-token': token});
     assert.equal(authorized.status, 200);
