@@ -153,10 +153,11 @@ async function fetchOnlineLeads(){const response=await fetch('https://leadflow-r
 let socialBackgroundGeneration=0;
 async function discoverSocialsInBackground(items){
  const generation=++socialBackgroundGeneration;
- const targets=items.filter(x=>url(x.website)&&!verifiedSocialProfiles(x).length&&!x.socialLookupStatus).slice(0,12);
+ const targets=items.filter(x=>url(x.website)&&!verifiedSocialProfiles(x).length&&!x.socialLookupStatus).slice(0,8);
  for(const x of targets){
   if(generation!==socialBackgroundGeneration)break;
   await verifySocialProfiles(x);
+  if(generation!==socialBackgroundGeneration)break;
  }
 }
 function mergeBusinessLeads(local,online){const result=[...local],byHost=new Map();const host=x=>{try{return new URL(url(x.website)).hostname.toLowerCase().replace(/^www\./,'')}catch{return ''}};for(let i=0;i<result.length;i++){const h=host(result[i]);if(h)byHost.set(h,i)}for(const item of online){const h=host(item);if(h&&byHost.has(h)){const current=result[byHost.get(h)];current.platform=item.platform!=='Not verified'?item.platform:current.platform;current.classification=item.classification==='Online'||item.classification==='Local + Online'?'Local + Online':current.classification;current.classificationEvidence=item.classificationEvidence||current.classificationEvidence;current.usEvidence=item.usEvidence;continue}if(h)byHost.set(h,result.length);result.push(item)}return result}
