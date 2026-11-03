@@ -15,7 +15,7 @@ export function createSearchHistory(dir){
   let count=0;const seen=new Set();
   for(const item of elements.slice(0,30)){
    let domain='';try{const u=new URL(String(item.website||item.url||item.tags?.website||''));if(['https:','http:'].includes(u.protocol))domain=u.hostname.toLowerCase().replace(/^www\./,'')}catch{}
-   if(!/^[a-z0-9][a-z0-9.-]{1,250}[a-z0-9]$/.test(domain)||domain.includes('..')||seen.has(domain))continue;
+   if(!/^[a-z0-9][a-z0-9.-]{1,250}[a-z0-9]$/.test(domain)||domain.includes('..')||!domain.includes('.')||domain.endsWith('.local')||seen.has(domain))continue;
    seen.add(domain);count++;const name=String(item.name||item.tags?.name||'').slice(0,160);
    if(pool)await pool.query('INSERT INTO leadflow_shared_search_history(domain,name,searched_at) VALUES($1,$2,NOW()) ON CONFLICT(domain) DO UPDATE SET name=EXCLUDED.name,searched_at=NOW()',[domain,name]);
    rows=[{domain,name,searchedAt:new Date().toISOString()},...rows.filter(x=>x.domain!==domain)].slice(0,100);
