@@ -3,6 +3,7 @@ on:
   push:
     paths:
       - 'scripts/build_maryland_index.py'
+      - 'backend/data/maryland-seed-businesses.json'
       - '.github/workflows/refresh-business-index.yml'
   workflow_dispatch:
   schedule:
