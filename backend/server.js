@@ -253,7 +253,7 @@ async function refreshOnlineCatalog(){
  }catch(e){console.warn('Catalog refresh failed:',e.message)}finally{catalogRefreshActive=false}
 }
 async function searchIndexedOnlineBusinesses(niche){
- const records=[...onlineCatalog.values()].filter(v=>v.niches.includes(niche)&&['Online','Local + Online'].includes(v.classification));
+ const records=[...onlineCatalog.values()].filter(v=>v.niches.includes(niche)&&['Online','Local + Online'].includes(v.classification)).sort((a,b)=>(b.checkedAt||0)-(a.checkedAt||0));
  const elements=records.slice(0,100).map(v=>({...v.element,sourceAgreement:['Indexed US business','Observed public website signals']}));
  // Refresh outside the request path. Search latency is independent of website availability.
  void refreshOnlineCatalog();
@@ -261,7 +261,7 @@ async function searchIndexedOnlineBusinesses(niche){
 }
 async function searchOnlineBusinesses(niche){
  if(!onlineNicheTerms[niche])throw Error('Unsupported niche');
- const cached=onlineCache.get(niche);if(cached&&Date.now()-cached.at<900000)return {...cached.result,cached:true};
+ const cached=onlineCache.get(niche);if(cached&&Date.now()-cached.at<30000&&cached.result.catalogSize===onlineCatalog.size)return {...cached.result,cached:true};
  const indexed=await searchIndexedOnlineBusinesses(niche);onlineCache.set(niche,{at:Date.now(),result:indexed});return indexed;
  // Wikidata statements provide independently checkable US headquarters/country and official website.
  // No arbitrary web crawling, scraped search results, or guesses about Shopify hosting.
