@@ -19,11 +19,8 @@ CATEGORIES={
  "Nutritionists":[("healthcare",re.compile(r"nutrition_counselling",re.I))],
  "Chiropractors":[("healthcare",re.compile(r"chiropractor",re.I))],
  "Wellness clinics":[("healthcare",re.compile(r"clinic",re.I))],
- "Dating coaches":[("office",re.compile(r"consulting",re.I))],
- "Matchmakers":[("office",re.compile(r"consulting",re.I))],
  "Couples counselors":[("healthcare",re.compile(r"psychotherapist",re.I))],
  "Wedding planners":[("office",re.compile(r"event_planner",re.I))],
- "Relationship coaches":[("office",re.compile(r"consulting",re.I))],
 }
 rows={}
 class Collect(osmium.SimpleHandler):
@@ -31,6 +28,7 @@ class Collect(osmium.SimpleHandler):
   tags=dict(obj.tags)
   name=tags.get("name","").strip()
   if not name:return
+  # Do not infer relationship specialists from generic consulting offices.
   niches=[n for n,criteria in CATEGORIES.items() if any(rx.search(tags.get(k,"")) for k,rx in criteria)]
   if not niches:return
   try:
