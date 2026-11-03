@@ -14,11 +14,11 @@ test('shared history persists, normalizes and deduplicates business domains',asy
   assert.equal(await first.record([
    {tags:{website:'https://www.restorreco.com',name:'Restorreco'}},
    {website:'https://restorreco.com/about',name:'Restorreco'},
-   {website:'http://localhost:3000',name:'Invalid local'}]),2);
+   {website:'http://localhost:3000',name:'Invalid local'}]),1);
   const second=createSearchHistory(dir);await second.init();
   const rows=await second.recent();
   assert.equal(rows.filter(r=>r.domain==='restorreco.com').length,1);
-  assert.equal(rows[0].domain,'localhost');
+  assert.equal(rows[0].domain,'restorreco.com');
  }finally{
   if(previous===undefined)delete process.env.DATABASE_URL;else process.env.DATABASE_URL=previous;
   await rm(dir,{recursive:true,force:true});
