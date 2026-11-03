@@ -19,3 +19,23 @@ export async function libraryAction(token,action,data){
  if(action==='mark'){const key=String(data.key||'');if(key.length>1100)throw Error('Invalid lead key');const field=data.field==='saved'?'saved':data.field==='seen'?'seen':null;if(!field)throw Error('Invalid status field');const result=await pool.query('UPDATE leadflow_lead_library SET '+field+'=$3,updated_at=NOW() WHERE scope=$1 AND lead_key=$2',[scope,key,data.value===true]);return {updated:result.rowCount}}
  throw Error('Unknown library action')
 }
+
+export async function verifyLeadLibrary(){
+ if(!pool)return {passed:false,reason:'Neon library not connected'};
+ const client=await pool.connect();
+ const scope='leadflow-internal-verification',key='domain:verification.invalid';
+ try{
+  await client.query('BEGIN');
+  await client.query('INSERT INTO leadflow_lead_library(scope,lead_key,data,saved,seen) VALUES($1,$2,$3,false,false) ON CONFLICT(scope,lead_key) DO UPDATE SET data=EXCLUDED.data,saved=false,seen=false',[scope,key,JSON.stringify({name:'LeadFlow Verification',website:'https://verification.invalid'})]);
+  const discovered=await client.query('SELECT saved,seen FROM leadflow_lead_library WHERE scope=$1 AND lead_key=$2',[scope,key]);
+  if(discovered.rowCount!==1||discovered.rows[0].saved)throw Error('Discovery/retrieval failed');
+  await client.query('UPDATE leadflow_lead_library SET saved=true WHERE scope=$1 AND lead_key=$2',[scope,key]);
+  const saved=await client.query('SELECT saved FROM leadflow_lead_library WHERE scope=$1 AND lead_key=$2',[scope,key]);
+  if(!saved.rows[0]?.saved)throw Error('Save/retrieval failed');
+  await client.query('UPDATE leadflow_lead_library SET saved=false WHERE scope=$1 AND lead_key=$2',[scope,key]);
+  const unsaved=await client.query('SELECT saved FROM leadflow_lead_library WHERE scope=$1 AND lead_key=$2',[scope,key]);
+  if(unsaved.rows[0]?.saved!==false)throw Error('Unsave/retrieval failed');
+  await client.query('ROLLBACK');
+  return {passed:true,checks:['discover','retrieve','save','retrieve saved','unsave','retrieve unsaved'],rolledBack:true}
+ }catch(e){await client.query('ROLLBACK').catch(()=>{});return {passed:false,reason:e.message}}finally{client.release()}
+}
