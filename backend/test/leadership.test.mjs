@@ -28,3 +28,19 @@ test('live enrichment route uses both parsers and leadership pages',()=>{
  assert.match(route,/peopleFromVisibleText\(html,root\+path\)/);
  assert.match(route,/\/leadership/);
 });
+
+test('ignores leadership claims without an explicit name and role',()=>{
+ const html='<p>We are a founder-led company.</p><p>Our CEO is passionate about growth.</p><p>Contact our team for details.</p>';
+ const people=context.peopleFromVisibleText(html,source);
+ assert.equal(people.length,0);
+});
+test('does not invent leadership from invalid structured data',()=>{
+ const html='<script type="application/ld+json">{invalid}</script><h2>Meet our founders</h2>';
+ assert.equal(context.peopleFromStructuredData(html,source).length,0);
+});
+test('supports several executives while retaining the original source URL',()=>{
+ const html='<script type="application/ld+json">'+JSON.stringify({'@type':'Organization',ceo:[{name:'Alice Brown'},{name:'David Wilson'}]})+'</script>';
+ const people=context.peopleFromStructuredData(html,source);
+ assert.equal(people.filter(x=>x.role==='CEO').length,2);
+ assert.ok(people.every(x=>x.source===source));
+});
