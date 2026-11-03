@@ -28,30 +28,41 @@ const SETTINGS_KEY='leadflow-outreach-settings-v1';
 try{const p=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}');$('out-service').value=p.service||'';$('out-sender').value=p.sender||'';$('out-optout').value=p.unsubscribe||'Reply unsubscribe'}catch{}
 $('toggle-outreach-settings').onclick=()=>{$('outreach-settings').open=!$('outreach-settings').open};
 $('save-outreach-settings').onclick=()=>{try{localStorage.setItem(SETTINGS_KEY,JSON.stringify({service:$('out-service').value.trim(),sender:$('out-sender').value.trim(),unsubscribe:$('out-optout').value.trim()}));$('outreach-settings').open=false;$('outreach-note').textContent='Settings saved on this device.'}catch(e){$('outreach-note').textContent='Unable to save settings: '+e.message}};
+let draftGeneration=0;
+function socialProfile(lead){
+ const links=[...(lead.socials||[]).map(x=>typeof x==='string'?x:x.url),...(lead.enrichedSocials||[])].map(url).filter(Boolean);
+ return links.find(x=>{try{return /(^|\.)linkedin\.com$|(^|\.)facebook\.com$|(^|\.)instagram\.com$|(^|\.)twitter\.com$|^x\.com$/.test(new URL(x).hostname.toLowerCase())}catch{return false}})||'';
+}
+function renderOutreachDraft(mode,data,opportunity,analysisStatus){
+ const offer=data.service||'website improvements and digital growth';
+ const first=data.contact||'there';
+ const verified=opportunity?.verified===true;
+ const detail=verified?'I noticed an opportunity to '+opportunity.action+'. ':'';
+ if(mode==='social'){
+  lastDraft='Hi '+first+', I came across '+data.business+'. '+detail+'I help businesses with '+offer+'. Would you be open to a quick conversation?';
+  lastSocialUrl=socialProfile(selectedDraftLead);$('open-social').disabled=!lastSocialUrl;
+ }else{
+  lastDraft='SUBJECT: A website idea for '+data.business+'\n\nHi '+first+',\n\nI was looking at '+data.business+' and wanted to share a quick idea. '+detail+'My work focuses on '+offer+', and I would be happy to share a practical suggestion tailored to your business.\n\nWould you be open to a brief conversation?\n\n'+(data.sender||'[Your name and business contact information]')+'\n\nTo opt out: '+(data.unsubscribe||'Reply unsubscribe');
+  lastSocialUrl='';$('open-social').disabled=true;
+ }
+ $('draft-output').value=lastDraft;
+ $('outreach-note').textContent=(verified?'Personalized using a verified Growth Lens finding. ':analysisStatus==='loading'?'Draft ready. Checking Growth Lens for additional personalization… ':analysisStatus==='unavailable'?'Draft ready. Website analysis was unavailable, so no specific issue was claimed. ':'Draft ready. ')+'Review before sending; nothing was sent.';
+}
 async function createSmartDraft(mode){
  const lead=selectedDraftLead;
  if(!lead){$('outreach-note').textContent='Select Draft outreach next to a business first.';return}
  const data={business:lead.name,contact:(lead.owner||lead.enrichedPeople?.[0]?.name||'').split(' ')[0],website:lead.website,service:$('out-service').value.trim(),sender:$('out-sender').value.trim(),unsubscribe:$('out-optout').value.trim()};
- if(!data.service||!data.sender||!data.unsubscribe){$('outreach-settings').open=true;$('outreach-note').textContent='Complete your one-time service and sender settings, then generate the draft.';return}
- const btn=$(mode==='social'?'make-social':'make-draft');btn.disabled=true;$('outreach-note').textContent='Growth Lens is evaluating '+lead.name+' in the background…';
+ const generation=++draftGeneration;
+ renderOutreachDraft(mode,data,null,'loading');
+ const btn=$(mode==='social'?'make-social':'make-draft');btn.disabled=true;
  try{
   const api=new URL($('worker').value||'https://leadflow-research-api.onrender.com/enrich');
   if(api.hostname!=='leadflow-research-api.onrender.com')throw Error('Use the official LeadFlow API');
-  const response=await fetch(api.origin+'/smart-draft',{method:'POST',headers:{'content-type':'application/json',...($('api-token').value?{'x-leadflow-token':$('api-token').value}:{})},body:JSON.stringify(data),signal:AbortSignal.timeout(65000)});
+  const response=await fetch(api.origin+'/smart-draft',{method:'POST',headers:{'content-type':'application/json',...($('api-token').value?{'x-leadflow-token':$('api-token').value}:{})},body:JSON.stringify({...data,service:data.service||'website improvements and digital growth',sender:data.sender||'Sender details to be added before sending',unsubscribe:data.unsubscribe||'Reply unsubscribe'}),signal:AbortSignal.timeout(65000)});
   const result=await response.json();if(!response.ok)throw Error(result.error||'Analysis failed');
-  if(mode==='social'){
-   const links=[...(lead.socials||[]).map(x=>x.url),...(lead.enrichedSocials||[])].map(url).filter(Boolean);
-   lastSocialUrl=links.find(x=>/linkedin\.com|facebook\.com|instagram\.com|x\.com|twitter\.com/i.test(new URL(x).hostname))||'';
-   const detail=result.opportunity?.verified?'I noticed an opportunity to '+result.opportunity.action+'. ':'';
-   lastDraft='Hi '+(data.contact||'there')+', I came across '+data.business+'. '+detail+'I help businesses with '+data.service+'. Would you be open to a quick conversation?';
-   $('open-social').disabled=!lastSocialUrl;
-  }else{
-   lastDraft='SUBJECT: '+result.subject+'\n\n'+result.text;
-   lastSocialUrl='';$('open-social').disabled=true;
-  }
-  $('draft-output').value=lastDraft;
-  $('outreach-note').textContent=(result.opportunity?.verified?'Based on a Growth Lens website finding. ':'No specific website issue verified. ')+(mode==='social'?(lastSocialUrl?'Open the company social profile and paste your message.':'No verified social profile found for this business. Copy the draft manually.'):'Review the email before sending.')+' Nothing was sent.';
- }catch(e){$('outreach-note').textContent='Unable to generate draft: '+e.message}
+  if(generation!==draftGeneration)return;
+  renderOutreachDraft(mode,data,result.opportunity,result.opportunity?.verified?'verified':'unavailable');
+ }catch(e){if(generation===draftGeneration){renderOutreachDraft(mode,data,null,'unavailable');$('outreach-note').textContent+=' Analysis detail: '+e.message}}
  finally{btn.disabled=false}
 }
 $('make-draft').onclick=()=>createSmartDraft('email');
