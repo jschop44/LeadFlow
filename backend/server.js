@@ -201,7 +201,7 @@ async function discoverNationwideCandidates(){
  const niches=Object.keys(discoveryTerms),niche=niches[discoveryNicheIndex++%niches.length];
  try{
   // Wikimedia's indexed search is intended for keyword discovery; SPARQL is not.
-  const params=new URLSearchParams({action:'query',generator:'search',gsrsearch:discoveryTerms[niche],gsrnamespace:'0',gsrlimit:'30',prop:'info',format:'json',origin:'*'});
+  const params=new URLSearchParams({action:'query',generator:'search',gsrsearch:discoveryTerms[niche]+' haswbstatement:P17=Q30 haswbstatement:P856',gsrnamespace:'0',gsrlimit:'30',prop:'info',format:'json',origin:'*'});
   const search=await fetchJSON('https://www.wikidata.org/w/api.php?'+params,{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlowResearch/1.0 (business discovery)'}});
   const ids=Object.values(search?.query?.pages||{}).map(page=>page.title).filter(title=>/^Q[0-9]+$/.test(title)).slice(0,30);
   if(!ids.length){console.log('Nationwide discovery: no candidates',niche);return}
