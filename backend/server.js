@@ -187,7 +187,7 @@ async function searchOnlineBusinesses(niche){
  const pattern=onlineNicheTerms[niche];
  const sparql='SELECT DISTINCT ?company ?companyLabel ?website ?description WHERE { ?company wdt:P856 ?website . { ?company wdt:P17 wd:Q30 . } UNION { ?company wdt:P159/wdt:P17 wd:Q30 . } OPTIONAL { ?company schema:description ?description FILTER(LANG(?description)="en") } OPTIONAL { ?company wdt:P452 ?industry . ?industry rdfs:label ?industryLabel FILTER(LANG(?industryLabel)="en") } FILTER(REGEX(LCASE(CONCAT(COALESCE(?description,"")," ",COALESCE(?industryLabel,""))), "'+pattern+'")) SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } LIMIT 70';
  const endpoint='https://query.wikidata.org/sparql?format=json&query='+encodeURIComponent(sparql);
- const response=await fetchJSON(endpoint,{signal:AbortSignal.timeout(16000),headers:{'accept':'application/sparql-results+json'}});
+ let response;try{response=await fetchJSON(endpoint,{signal:AbortSignal.timeout(6500),headers:{'accept':'application/sparql-results+json'}})}catch(error){console.warn('Online source unavailable:',error.message);return {elements:[],niche,source:'Wikidata unavailable',searchStatus:'provider_unavailable',message:'Online directory timed out; no unverified results substituted.'}};
  const seen=new Set(),elements=[];
  for(const row of response.results?.bindings||[]){
   const website=row.website?.value||'',name=row.companyLabel?.value||'',id=row.company?.value?.split('/').pop();
