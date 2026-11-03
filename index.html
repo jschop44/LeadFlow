@@ -112,6 +112,10 @@ async function createSmartDraft(mode){
 window.leadflowDraft=createSmartDraft;
 window.leadflowOpenSocial=()=>{if(!selectedDraftLead){$('outreach-note').textContent='Select a business first.';return}const profile=socialProfile(selectedDraftLead);if(!profile){$('outreach-note').textContent='No verified social profile for this business. Run verification first.';return}window.location.assign(profile)};
 $('copy-draft').onclick=async()=>{if(!lastDraft)return;try{await navigator.clipboard.writeText(lastDraft);$('outreach-note').textContent='Draft copied. Nothing was sent.'}catch{$('draft-output').select();$('outreach-note').textContent='Select and copy the draft.'}};
+const SOCIAL_CACHE_KEY='leadflow-social-profiles-v1';
+function socialCache(){try{return JSON.parse(localStorage.getItem(SOCIAL_CACHE_KEY)||'{}')}catch{return {}}}
+function restoreSocialProfiles(items){const cache=socialCache();for(const x of items){const k=key(x),entry=cache[k];if(!entry||Date.now()-entry.checkedAt>7*86400000)continue;x.enrichedSocials=entry.socials;x.socialLookupStatus=entry.socials.length?'published_links_found':'no_published_links'}}
+function saveSocialProfiles(x){try{const cache=socialCache();cache[key(x)]={socials:x.enrichedSocials||[],checkedAt:Date.now()};const entries=Object.entries(cache).sort((a,b)=>b[1].checkedAt-a[1].checkedAt).slice(0,500);localStorage.setItem(SOCIAL_CACHE_KEY,JSON.stringify(Object.fromEntries(entries)))}catch{}}
 async function verifySocialProfiles(x){
  if(x.socialLookupInProgress)return;
  x.socialLookupInProgress=true;
@@ -122,7 +126,7 @@ async function verifySocialProfiles(x){
   const data=await res.json().catch(()=>({}));
   if(!res.ok)throw Error(data.error||'Website verification unavailable');
   x.enrichedSocials=(data.socials||[]).filter(url);
-  x.socialLookupStatus=x.enrichedSocials.length?'published_links_found':'no_published_links';
+  x.socialLookupStatus=x.enrichedSocials.length?'published_links_found':'no_published_links';saveSocialProfiles(x);
   x.enrichmentAttempted=true;
   x.enrichedEmails=data.emails||[];x.enrichedPhones=data.phones||[];
   x.enrichedPeople=data.people||[];x.enrichmentSources=data.sources||[];
@@ -154,6 +158,7 @@ async function fetchOnlineLeads(){const response=await fetch('https://leadflow-r
 let socialBackgroundGeneration=0;
 async function discoverSocialsInBackground(items){
  const generation=++socialBackgroundGeneration;
+ restoreSocialProfiles(items);
  const targets=items.filter(x=>url(x.website)&&!verifiedSocialProfiles(x).length&&!x.socialLookupStatus).slice(0,8);
  for(const x of targets){
   if(generation!==socialBackgroundGeneration)break;
