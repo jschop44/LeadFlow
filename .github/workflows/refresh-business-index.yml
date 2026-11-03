@@ -19,6 +19,11 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install osmium
+      - name: Diagnose importer environment
+        run: |
+          python -c 'import osmium; print("pyosmium import OK")'
+          df -h .
+          curl -IL --max-time 25 https://download.geofabrik.de/north-america/us/maryland-latest.osm.pbf
       - run: curl -fL --retry 3 --max-time 600 https://download.geofabrik.de/north-america/us/maryland-latest.osm.pbf -o /tmp/maryland.osm.pbf
       - run: python scripts/build_maryland_index.py
       - name: Validate snapshot
@@ -33,6 +38,13 @@ jobs:
           print('BEL_AIR_POSTCODE_21015='+str(sum(r.get('tags',{}).get('addr:postcode')=='21015' for r in records)))
           assert records, 'Snapshot must contain sourced business records'
           PY
+      - name: Upload index artifact even if repository push fails
+        uses: actions/upload-artifact@v4
+        with:
+          name: maryland-business-index
+          path: backend/data/maryland-businesses.json
+          if-no-files-found: error
+          retention-days: 7
       - name: Commit real source records
         run: |
           git config user.name "github-actions[bot]"
