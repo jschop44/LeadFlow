@@ -179,9 +179,24 @@ async function classifyElements(elements){
  return output;
 }
 
+async function searchIndexedOnlineBusinesses(niche){
+ const candidates=[...businessIndex.values()].filter(v=>v.niches?.includes(niche)&&Boolean(v.element?.tags?.website||v.element?.tags?.['contact:website']));
+ const unique=new Set(),selected=[];
+ for(const v of candidates){
+  const el=v.element,t=el.tags||{},raw=t.website||t['contact:website'];let host;
+  try{host=new URL(raw).hostname.toLowerCase().replace(/^www\./,'')}catch{continue}
+  if(unique.has(host))continue;unique.add(host);
+  selected.push({...el,tags:{...t,website:raw},sourceAgreement:v.sources||['Existing business index'],usEvidence:'US mapped business index'});
+  if(selected.length>=12)break;
+ }
+ const inspected=await classifyElements(selected);
+ const elements=inspected.filter(el=>['Online','Local + Online'].includes(el.classification));
+ return {elements,niche,source:'US business index and observed public website signals',searchStatus:elements.length?'ok':'no_verified_matches',message:elements.length?'Online activity is supported by inspected website signals. Coverage is limited to indexed US businesses.':'No online activity confirmed among the indexed businesses inspected. No physical-only listings substituted.',inspected:selected.length,availableCandidates:candidates.length};
+}
 async function searchOnlineBusinesses(niche){
  if(!onlineNicheTerms[niche])throw Error('Unsupported niche');
  const cached=onlineCache.get(niche);if(cached&&Date.now()-cached.at<900000)return {...cached.result,cached:true};
+ const indexed=await searchIndexedOnlineBusinesses(niche);onlineCache.set(niche,{at:Date.now(),result:indexed});return indexed;
  // Wikidata statements provide independently checkable US headquarters/country and official website.
  // No arbitrary web crawling, scraped search results, or guesses about Shopify hosting.
  const pattern=onlineNicheTerms[niche];
