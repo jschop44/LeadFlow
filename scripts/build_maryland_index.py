@@ -22,6 +22,18 @@ CATEGORIES={
  "Couples counselors":[("healthcare",re.compile(r"psychotherapist",re.I))],
  "Wedding planners":[("office",re.compile(r"event_planner",re.I))],
 }
+# Specialized relationship services require explicit evidence in the business name or tags.
+SPECIALIZED={
+ "Dating coaches":re.compile(r"dating coach|dating consultant|dating mentor",re.I),
+ "Matchmakers":re.compile(r"matchmak|match.?making",re.I),
+ "Relationship coaches":re.compile(r"relationship coach|relationship counsel|relationship therap",re.I),
+ "Couples counselors":re.compile(r"couples? counsel|marriage counsel|couples? therap|marriage therap",re.I),
+ "Wedding planners":re.compile(r"wedding plann|wedding coordinat|bridal planning",re.I),
+ "Nutritionists":re.compile(r"nutritionist|dietitian|nutrition counsel",re.I),
+ "Med spas":re.compile(r"med(ical)? spa|aesthetic clinic|medical aesthetic",re.I),
+ "Business coaches":re.compile(r"business coach|executive coach|business mentor",re.I),
+ "Fitness coaches":re.compile(r"personal train|fitness coach|fitness trainer",re.I),
+}
 rows={}
 class Collect(osmium.SimpleHandler):
  def add(self,obj,typ):
@@ -30,6 +42,9 @@ class Collect(osmium.SimpleHandler):
   if not name:return
   # Do not infer relationship specialists from generic consulting offices.
   niches=[n for n,criteria in CATEGORIES.items() if any(rx.search(tags.get(k,"")) for k,rx in criteria)]
+  searchable=" ".join([name,tags.get("description",""),tags.get("service",""),tags.get("services",""),tags.get("speciality","")])
+  for niche,pattern in SPECIALIZED.items():
+   if pattern.search(searchable) and niche not in niches:niches.append(niche)
   if not niches:return
   try:
    if typ=="node":lat,lon=obj.location.lat,obj.location.lon
