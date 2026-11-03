@@ -37,7 +37,12 @@ jobs:
           print('MARYLAND_INDEX_RECORDS='+str(len(records)))
           print('FINANCIAL_ADVISORS='+str(sum('Financial advisors' in r.get('niches',[]) for r in records)))
           print('BEL_AIR_POSTCODE_21015='+str(sum(r.get('tags',{}).get('addr:postcode')=='21015' for r in records)))
-          assert records, 'Snapshot must contain sourced business records'
+          assert len(records)>=10, 'Snapshot must preserve the ten source-attributed seed businesses'
+          niches={n for r in records for n in r.get('niches',[])}
+          print('NICHE_COVERAGE='+str(sorted(niches)))
+          assert 'Financial advisors' in niches, 'Financial advisor seed records missing'
+          assert len(niches)>=3, 'Statewide import must contain at least three distinct business niches'
+          assert len(records)>10, 'Statewide import must add new sourced businesses before publishing'
           PY
       - name: Upload index artifact even if repository push fails
         uses: actions/upload-artifact@v4
