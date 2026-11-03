@@ -193,11 +193,12 @@ async function discoverNationwideCandidates(){
  const niches=Object.keys(onlineNicheTerms),niche=niches[discoveryNicheIndex++%niches.length];
  const pattern=onlineNicheTerms[niche];
  // Discovery runs asynchronously, never in the user request. US country evidence is explicit.
- const query='SELECT DISTINCT ?company ?companyLabel ?website WHERE { ?company wdt:P856 ?website; wdt:P17 wd:Q30 . OPTIONAL { ?company schema:description ?description FILTER(LANG(?description)="en") } OPTIONAL { ?company wdt:P452 ?industry . ?industry rdfs:label ?industryLabel FILTER(LANG(?industryLabel)="en") } FILTER(REGEX(LCASE(CONCAT(COALESCE(?description,"")," ",COALESCE(?industryLabel,""))), "'+pattern+'")) SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } LIMIT 35';
+ // Restrict Wikidata to US organizations with a website before matching niche locally.
+ const query='SELECT DISTINCT ?company ?companyLabel ?website ?description WHERE { ?company wdt:P17 wd:Q30; wdt:P856 ?website . OPTIONAL { ?company schema:description ?description FILTER(LANG(?description)="en") } SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } LIMIT 150';
  try{
   const endpoint='https://query.wikidata.org/sparql?format=json&query='+encodeURIComponent(query);
   const response=await fetchJSON(endpoint,{signal:AbortSignal.timeout(20000),headers:{accept:'application/sparql-results+json','user-agent':'LeadFlowResearch/1.0 (public business directory)'}});
-  const entries=response?.results?.bindings||[];
+  const entries=(response?.results?.bindings||[]).filter(item=>new RegExp(pattern,'i').test((item.companyLabel?.value||'')+' '+(item.description?.value||'')));
   let saved=0;
   for(const item of entries){
    if(saved>=8)break;
