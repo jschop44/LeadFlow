@@ -110,7 +110,9 @@ jobs:
             const data=await response.json();
             console.log(JSON.stringify({area,status:response.status,count:data.elements?.length||0,source:data.source}));
             if(!response.ok||!data.indexed||data.elements?.length<minimum)throw Error('Indexed business search failed for '+area);
-            if(data.elements.some(e=>!e.tags?.name||!e.tags?.website))throw Error('Missing business provenance');
+            if(data.elements.some(e=>!e.tags?.name||!Array.isArray(e.sourceAgreement)||!e.sourceAgreement.length))throw Error('Missing business provenance');
+            const withWebsites=data.elements.filter(e=>e.tags?.website).length;
+            console.log(JSON.stringify({area,withWebsites,withoutWebsites:data.elements.length-withWebsites}));
           }
           NODE
       - name: Live API discovery test (non-blocking external dependency)
