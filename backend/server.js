@@ -188,14 +188,41 @@ function catalogDomain(raw){try{const u=new URL(raw);return ['http:','https:'].i
 async function loadOnlineCatalog(){await catalogStore.init();catalogReady=true}
 let catalogWrite=Promise.resolve();
 function saveOnlineCatalog(){return Promise.all([...onlineCatalog.values()].map(row=>catalogStore.save(row)))}
+let discoveryNicheIndex=0;
+async function discoverNationwideCandidates(){
+ const niches=Object.keys(onlineNicheTerms),niche=niches[discoveryNicheIndex++%niches.length];
+ const pattern=onlineNicheTerms[niche];
+ // Discovery runs asynchronously, never in the user request. US country evidence is explicit.
+ const query='SELECT DISTINCT ?company ?companyLabel ?website WHERE { ?company wdt:P856 ?website; wdt:P17 wd:Q30 . OPTIONAL { ?company schema:description ?description FILTER(LANG(?description)="en") } OPTIONAL { ?company wdt:P452 ?industry . ?industry rdfs:label ?industryLabel FILTER(LANG(?industryLabel)="en") } FILTER(REGEX(LCASE(CONCAT(COALESCE(?description,"")," ",COALESCE(?industryLabel,""))), "'+pattern+'")) SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } LIMIT 35';
+ try{
+  const endpoint='https://query.wikidata.org/sparql?format=json&query='+encodeURIComponent(query);
+  const response=await fetchJSON(endpoint,{signal:AbortSignal.timeout(20000),headers:{accept:'application/sparql-results+json','user-agent':'LeadFlowResearch/1.0 (public business directory)'}});
+  const entries=response?.results?.bindings||[];
+  let saved=0;
+  for(const item of entries){
+   if(saved>=8)break;
+   const website=item.website?.value,domain=catalogDomain(website),name=item.companyLabel?.value;
+   if(!domain||!name||name.startsWith('http')||onlineCatalog.has(domain))continue;
+   const result=await inspectBusinessWebsite(website);
+   if(result.classification!=='Online')continue;
+   const element={type:'node',id:'wikidata-'+domain,tags:{name,website},classification:'Online',platform:result.platform,classificationEvidence:result.classificationEvidence,usEvidence:'Wikidata country: United States',sourceAgreement:['Wikidata US country statement','Public website inspection']};
+   const row={domain,niches:[niche],checkedAt:Date.now(),classification:'Online',platform:result.platform,evidence:result.classificationEvidence,usEvidence:element.usEvidence,element};
+   onlineCatalog.set(domain,row);await catalogStore.save(row);saved++;
+  }
+  console.log('Nationwide discovery',JSON.stringify({niche,candidates:entries.length,verified:saved}));
+ }catch(e){console.warn('Nationwide discovery skipped:',niche,e.message)}
+}
 async function refreshOnlineCatalog(){
  if(catalogRefreshActive)return;
  catalogRefreshActive=true;
  try{
-  const rows=[...businessIndex.values()].filter(v=>v.element?.tags?.website||v.element?.tags?.['contact:website']).sort((a,b)=>{const ta=a.element?.tags||{},tb=b.element?.tags||{};const da=catalogDomain(ta.website||ta['contact:website']),db=catalogDomain(tb.website||tb['contact:website']);return (onlineCatalog.get(da)?.checkedAt||0)-(onlineCatalog.get(db)?.checkedAt||0)});
-  let inspected=0,changed=0;
+  const rows=[...businessIndex.values()].filter(v=>v.element?.tags?.website||v.element?.tags?.['contact:website']).sort((a,b)=>{
+   const ta=a.element?.tags||{},tb=b.element?.tags||{};
+   return (onlineCatalog.get(catalogDomain(ta.website||ta['contact:website']))?.checkedAt||0)-(onlineCatalog.get(catalogDomain(tb.website||tb['contact:website']))?.checkedAt||0);
+  });
+  let inspected=0;
   for(const row of rows){
-   if(inspected>=20)break;
+   if(inspected>=12)break;
    const el=row.element,t=el.tags||{},website=t.website||t['contact:website'],domain=catalogDomain(website);
    if(!domain)continue;
    const previous=onlineCatalog.get(domain);
@@ -204,10 +231,10 @@ async function refreshOnlineCatalog(){
    const result=await inspectBusinessWebsite(website);
    const physical=Boolean(t['addr:street']||t['addr:city']||el.lat||el.lon||el.center);
    const classification=result.classification==='Online'?(physical?'Local + Online':'Online'):(physical?'Local':'Unverified');
-   onlineCatalog.set(domain,{domain,niches:row.niches||[],checkedAt:Date.now(),classification,platform:result.platform,evidence:result.classificationEvidence,usEvidence:'US mapped business record',element:{...el,tags:{...t,website},classification,platform:result.platform,classificationEvidence:result.classificationEvidence,usEvidence:'US mapped business record'}});
-   changed++;
+   const record={domain,niches:[...new Set([...(previous?.niches||[]),...(row.niches||[])])],checkedAt:Date.now(),classification,platform:result.platform,evidence:result.classificationEvidence,usEvidence:'US mapped business record',element:{...el,tags:{...t,website},classification,platform:result.platform,classificationEvidence:result.classificationEvidence,usEvidence:'US mapped business record'}};
+   onlineCatalog.set(domain,record);await catalogStore.save(record);
   }
-  if(changed)await saveOnlineCatalog();
+  await discoverNationwideCandidates();
  }catch(e){console.warn('Catalog refresh failed:',e.message)}finally{catalogRefreshActive=false}
 }
 async function searchIndexedOnlineBusinesses(niche){
