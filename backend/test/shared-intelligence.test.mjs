@@ -34,7 +34,14 @@ test('shared intelligence contract and isolation', async () => {
       {'x-leadflow-token': 'incorrect-token'});
     assert.equal(wrong.status, 401, 'Invalid cross-app token must be rejected');
 
-    const authorized = await post('/intelligence', {query: '', limit: 3},
+        const unauthorizedWrite = await post('/intelligence', {action:'feedback-sync',domain:'example.com',positive:1,negative:0}, {'x-leadflow-token':'separate-private-token'});
+    assert.equal(unauthorizedWrite.status,403,'Ordinary API token must not write shared feedback');
+    const invalidWrite = await post('/intelligence', {action:'feedback-sync',domain:'bad..domain',positive:1,negative:0}, {'x-leadflow-token':token});
+    assert.equal(invalidWrite.status,200);
+    assert.equal(invalidWrite.data.accepted,false);
+    assert.equal(invalidWrite.data.reason,'invalid_domain');
+
+const authorized = await post('/intelligence', {query: '', limit: 3},
       {'x-leadflow-token': token});
     assert.equal(authorized.status, 200);
     assert.match(authorized.data.engine, /LeadFlow/);
