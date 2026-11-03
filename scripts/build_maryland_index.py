@@ -45,6 +45,16 @@ class Collect(osmium.SimpleHandler):
  def way(self,obj):self.add(obj,"way")
 Collect().apply_file(PBF,locations=True,idx='flex_mem')
 OUT.parent.mkdir(parents=True,exist_ok=True)
-OUT.write_text(json.dumps({"source":"Geofabrik / OpenStreetMap contributors","region":"Maryland","records":list(rows.values())},separators=(",",":")))
+# Preserve independently sourced seed listings when the statewide OSM index refreshes.
+seed_path=Path("backend/data/maryland-seed-businesses.json")
+seed_records=json.loads(seed_path.read_text()).get("records",[]) if seed_path.exists() else []
+osm_records=list(rows.values())
+seen={(str(r.get("tags",{}).get("name","")).casefold(),str(r.get("tags",{}).get("addr:postcode",""))) for r in osm_records}
+for record in seed_records:
+ key=(str(record.get("tags",{}).get("name","")).casefold(),str(record.get("tags",{}).get("addr:postcode","")))
+ if record.get("tags",{}).get("name") and key not in seen:
+  osm_records.append(record)
+  seen.add(key)
+OUT.write_text(json.dumps({"source":"Geofabrik / OpenStreetMap contributors and attributed seed listings","region":"Maryland","records":osm_records},separators=(",",":")))
 print("Indexed",len(rows),"named Maryland businesses")
 if not rows:raise SystemExit("No real businesses extracted; refusing empty snapshot")
