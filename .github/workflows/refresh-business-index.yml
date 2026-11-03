@@ -1,0 +1,25 @@
+name: Refresh Maryland business index
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '15 7 * * 0'
+permissions:
+  contents: write
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install osmium
+      - run: curl -fL --retry 3 --max-time 600 https://download.geofabrik.de/north-america/us/maryland-latest.osm.pbf -o /tmp/maryland.osm.pbf
+      - run: python scripts/build_maryland_index.py
+      - name: Commit real source records
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add backend/data/maryland-businesses.json
+          git diff --cached --quiet || (git commit -m "Refresh Maryland OpenStreetMap business index" && git push)
