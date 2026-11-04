@@ -55,7 +55,17 @@
 <button id="send-connected" class="secondary">Send email</button>
 <button id="compose-social" class="secondary" disabled>Open message composer</button>
 <button id="open-social" class="secondary" onclick="window.leadflowOpenSocial && window.leadflowOpenSocial()">Open social profile</button>
-</div><details id="outreach-settings" style="margin:18px 0"><summary>One-time sender and service setup</summary><p class="muted">Save your offering and sender details once on this device. They are reused for each lead.</p><div class="filters"><div><label for="out-service">Service you offer</label><input id="out-service" placeholder="e.g. Website conversion optimization"></div><div><label for="out-sender">Your business name and postal address</label><input id="out-sender" placeholder="Business name and address"></div><div><label for="out-optout">Opt-out instructions</label><input id="out-optout" placeholder="Reply unsubscribe"></div></div><div class="actions"><button id="save-outreach-settings" class="secondary">Save settings on this device</button></div></details><div style="margin:14px 0"><label for="manual-recipient">Recipient email address (editable fallback)</label><input id="manual-recipient" type="email" autocomplete="off" inputmode="email" placeholder="Enter a business contact email, if known" style="max-width:560px"><p id="recipient-source" class="muted" style="font-size:13px;margin:6px 0">No recipient selected. You can enter a known business email address manually.</p></div><div id="outreach-note" class="muted" style="margin:12px 0">Select a business above to begin.</div><details id="email-template-panel" style="margin:14px 0"><summary>Email templates — create, save, load, import or export</summary>
+</div><details id="outreach-settings" style="margin:18px 0"><summary>One-time sender and service setup</summary><p class="muted">Save your offering and sender details once on this device. They are reused for each lead.</p><div class="filters"><div><label for="out-service">Service you offer</label><input id="out-service" placeholder="e.g. Website conversion optimization"></div><div><label for="out-sender">Your business name and postal address</label><input id="out-sender" placeholder="Business name and address"></div><div><label for="out-optout">Opt-out instructions</label><input id="out-optout" placeholder="Reply unsubscribe"></div></div><div class="actions"><button id="save-outreach-settings" class="secondary">Save settings on this device</button></div></details><div style="margin:14px 0"><label for="manual-recipient">Recipient email address (editable fallback)</label><input id="manual-recipient" type="email" autocomplete="off" inputmode="email" placeholder="Enter a business contact email, if known" style="max-width:560px"><p id="recipient-source" class="muted" style="font-size:13px;margin:6px 0">No recipient selected. You can enter a known business email address manually.</p></div><div id="outreach-note" class="muted" style="margin:12px 0">Select a business above to begin.</div><details id="knowledge-panel" style="margin:14px 0"><summary>Knowledge Base — private document intelligence</summary>
+<p class="muted">Available only when the backend knowledge feature is enabled. Text and .txt/.md files are supported in this first stage. PDF and Word extraction are not yet supported. Use your existing API access token.</p>
+<label for="kb-collection">Knowledge collection</label><select id="kb-collection"><option value="business">My business and services</option><option value="prospects">Prospect intelligence</option></select>
+<label for="kb-title">Document title</label><input id="kb-title" maxlength="180" placeholder="Services and pricing">
+<label for="kb-file">Upload plain text or Markdown</label><input id="kb-file" type="file" accept=".txt,.md,text/plain,text/markdown">
+<label for="kb-content">Document text</label><textarea id="kb-content" rows="5" placeholder="Paste information or choose a text file..."></textarea>
+<div class="actions" style="margin:10px 0"><button id="kb-ingest" type="button">Save to knowledge base</button></div>
+<label for="kb-query">Search knowledge</label><input id="kb-query" placeholder="e.g. website conversion pricing">
+<div class="actions" style="margin:10px 0"><button id="kb-search" type="button" class="secondary">Search collection</button></div>
+<p id="kb-status" role="status" class="muted"></p><div id="kb-results" style="white-space:pre-wrap"></div>
+</details><details id="email-template-panel" style="margin:14px 0"><summary>Email templates — create, save, load, import or export</summary>
 <p class="muted" style="margin:10px 0">Templates are saved on this device. Use placeholders: {{business}}, {{contact}}, {{service}}, {{sender}}, {{unsubscribe}}. Loading a template fills the editable draft; no email is sent.</p>
 <label for="template-select">Saved templates</label><select id="template-select" style="max-width:560px"><option value="">Choose a template...</option></select>
 <label for="template-name">Template name</label><input id="template-name" maxlength="100" placeholder="e.g. Initial website outreach" style="max-width:560px">
@@ -217,6 +227,44 @@ window.leadflowDraft=createSmartDraft;
 window.leadflowOpenSocial=()=>{if(!selectedDraftLead){$('outreach-note').textContent='Select a business first.';return}const profile=socialProfile(selectedDraftLead);if(!profile){$('outreach-note').textContent='No verified social profile for this business. Run verification first.';return}window.location.assign(profile)};
 let emailSession='',emailProvider='';
 const emailApi='https://leadflow-research-api.onrender.com';
+async function knowledgeRequest(action,fields={}){
+ const token=$('api-token').value.trim();if(!token)throw Error('Enter your API access token first');
+ const response=await fetch('https://leadflow-research-api.onrender.com/knowledge',{method:'POST',headers:{'content-type':'application/json','x-leadflow-token':token},body:JSON.stringify({action,...fields}),signal:AbortSignal.timeout(25000)});
+ const result=await response.json();if(!response.ok)throw Error(result.error||'Knowledge request failed');return result;
+}
+$('kb-file').onchange=async()=>{
+ const file=$('kb-file').files?.[0];if(!file)return;
+ if(!/\.(txt|md)$/i.test(file.name)||file.size>120000){$('kb-status').textContent='Only .txt or .md files up to 120 KB are supported.';return}
+ $('kb-title').value=$('kb-title').value||file.name;
+ $('kb-content').value=await file.text();
+ $('kb-status').textContent='File loaded for review. Click Save to knowledge base to ingest.';
+};
+$('kb-ingest').onclick=async()=>{
+ try{
+  $('kb-status').textContent='Saving knowledge...';
+  const result=await knowledgeRequest('ingest',{collection:$('kb-collection').value,title:$('kb-title').value,content:$('kb-content').value});
+  $('kb-status').textContent=result.duplicate?'This document already exists in the collection.':'Saved document '+result.id;
+ }catch(e){$('kb-status').textContent='Knowledge upload failed: '+e.message}
+};
+$('kb-search').onclick=async()=>{
+ try{
+  $('kb-status').textContent='Searching...';$('kb-results').replaceChildren();
+  const result=await knowledgeRequest('search',{collection:$('kb-collection').value,query:$('kb-query').value});
+  $('kb-status').textContent=result.results.length+' matching documents. Feedback changes ranking, not verified facts.';
+  result.results.forEach(hit=>{
+   const wrap=document.createElement('div');wrap.style.cssText='border:1px solid #364663;border-radius:10px;padding:12px;margin:8px 0';
+   const title=document.createElement('strong');title.textContent=hit.title;wrap.append(title);
+   const excerpt=document.createElement('p');excerpt.textContent=String(hit.excerpt||'').replace(/<[^>]*>/g,'');wrap.append(excerpt);
+   for(const [label,signal] of [['Useful','useful'],['Incorrect','incorrect']]){
+    const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent=label;
+    button.onclick=async()=>{try{await knowledgeRequest('feedback',{documentId:hit.id,signal});$('kb-status').textContent='Feedback recorded for '+hit.title}catch(e){$('kb-status').textContent=e.message}};
+    wrap.append(button);
+   }
+   $('kb-results').append(wrap);
+  });
+ }catch(e){$('kb-status').textContent='Knowledge search failed: '+e.message}
+};
+
 function emailConnectionUI(){ $('email-connection').textContent=emailSession?'Connected: '+emailProvider:'Email not connected';$('disconnect-email').disabled=!emailSession;$('send-connected').disabled=false }
 async function startEmailConnection(provider){
  const label=provider==='google'?'Gmail':'Microsoft 365';
