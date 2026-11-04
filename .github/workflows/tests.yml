@@ -130,7 +130,7 @@ jobs:
           const url='https://leadflow-research-api.onrender.com/health';
           const response=await fetch(url,{signal:AbortSignal.timeout(45000)});
           const body=await response.json();
-          console.log(JSON.stringify({status:response.status,health:body.status,indexedBusinesses:body.indexedBusinesses,sharedIntelligence:body.sharedIntelligence,onlineCatalogStorage:body.onlineCatalog?.storage,catalogRecords:body.onlineCatalog?.count}));
+          console.log(JSON.stringify({status:response.status,health:body.status,indexedBusinesses:body.indexedBusinesses,sharedIntelligence:body.sharedIntelligence,knowledgeBase:body.knowledgeBase,onlineCatalogStorage:body.onlineCatalog?.storage,catalogRecords:body.onlineCatalog?.count}));
           if(body.knowledgeBase?.enabled===true&&body.knowledgeBase?.storageReady!==true)throw Error('Live knowledge storage not ready');
           if(body.sharedIntelligence?.configured!==true)console.warn('SHARED INTELLIGENCE NOT CONFIGURED: feedback writes cannot authenticate');
           if(body.sharedIntelligence?.persistentCatalog!==true)console.warn('CATALOG NOT DURABLE: feedback may be lost after restart');
