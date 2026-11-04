@@ -317,7 +317,8 @@ async function refreshOnlineCatalog(){
    const record={domain,niches:[...new Set([...(previous?.niches||[]),...(row.niches||[])])],checkedAt:Date.now(),classification,platform:result.platform,evidence:result.classificationEvidence,usEvidence:'US mapped business record',element:{...el,tags:{...t,website},classification,platform:result.platform,classificationEvidence:result.classificationEvidence,usEvidence:'US mapped business record'}};
    onlineCatalog.set(domain,record);await catalogStore.save(record);
   }
-  await Promise.allSettled([discoverNationwideCandidates(),discoverNationwideCandidates(),discoverNationwideCandidates()]);
+  // A single bounded provider request per refresh avoids bursts and respects rate limits.
+  await discoverNationwideCandidates();
  }catch(e){console.warn('Catalog refresh failed:',e.message)}finally{catalogRefreshActive=false}
 }
 const productMerchantSources={
