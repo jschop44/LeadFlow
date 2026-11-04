@@ -379,6 +379,7 @@ function json(res,status,data,origin){res.writeHead(status,{'content-type':'appl
 async function oauthBody(req){let raw='';for await(const part of req){raw+=part;if(raw.length>24000)throw Error('Request too large')}return JSON.parse(raw)}
 http.createServer(async(req,res)=>{const origin=req.headers.origin||'';
  if(req.url.startsWith('/oauth/')){
+  if(req.method==='OPTIONS'){json(res,204,{},origin);return}
   try{
    if(origin&&origin!==ORIGIN){json(res,403,{error:'Origin not allowed'},origin);return}
    const path=new URL(req.url,'http://localhost');
