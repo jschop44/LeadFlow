@@ -7,7 +7,8 @@ test('scheduled engine creates deduplicated review tasks and never sends outreac
  process.env.INTELLIGENCE_AUTOMATION_ENABLED='true';
  const created=await knowledgeAction('ingest',{collection:'business',title:'Automation integration '+Date.now(),content:'We improve website accessibility and conversion with lead capture forms and performance optimization. '+Date.now()});
  t.after(async()=>{await knowledgeAction('archive',{documentId:created.id})});
- configureProspectProvider(()=>[{key:'ci-index-static',name:'CI Prospect Example',city:'Bel Air',niche:'Accountants',website:'https://example.org'}]);
+ const uniqueKey='ci-index-'+Date.now();
+ configureProspectProvider(()=>[{key:uniqueKey,name:'CI Prospect Example',city:'Bel Air',niche:'Accountants',website:'https://example.org'}]);
  configureResearchProvider(async()=>({status:'verified',summary:'Page title: Example Domain'}));
  const first=await runIntelligenceCycle();
  assert.equal(first.enabled,true);
