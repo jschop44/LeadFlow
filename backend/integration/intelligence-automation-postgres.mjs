@@ -1,22 +1,24 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {knowledgeAction,closeKnowledgePool} from '../knowledge-base.js';
-import {runIntelligenceCycle,intelligenceAction,configureProspectProvider,configureResearchProvider} from '../intelligence-automation.js';
+import {runIntelligenceCycle,intelligenceAction,configureProspectProvider,configureResearchProvider,configureAuditProvider} from '../intelligence-automation.js';
 test('scheduled engine creates deduplicated review tasks and never sends outreach',async(t)=>{
  t.after(closeKnowledgePool);
  process.env.INTELLIGENCE_AUTOMATION_ENABLED='true';
+ process.env.INTELLIGENCE_AUTO_AUDIT_ENABLED='true';
  const created=await knowledgeAction('ingest',{collection:'business',title:'Automation integration '+Date.now(),content:'We improve website accessibility and conversion with lead capture forms and performance optimization. '+Date.now()});
  t.after(async()=>{await knowledgeAction('archive',{documentId:created.id})});
  const uniqueKey='ci-index-'+Date.now();
  configureProspectProvider(()=>[{key:uniqueKey,name:'CI Prospect Example',city:'Bel Air',niche:'Accountants',website:'https://example.org'}]);
  configureResearchProvider(async()=>({status:'verified',summary:'Page title: Example Domain'}));
+ configureAuditProvider(async()=>({status:'verified',finding:'Contact: clearer inquiry path'}));
  const first=await runIntelligenceCycle();
  assert.equal(first.enabled,true);
  assert.ok(first.documentsScanned>=1);
  assert.equal(first.automaticOutreach,false);
  assert.ok(first.prospectsDiscovered>=1);
  assert.ok(first.websitesResearched>=1);
- const dashboard=await intelligenceAction('dashboard');
+ assert.ok(first.growthLensAudits>=1);
  assert.ok(dashboard.prospects.total>=1);
  assert.ok(dashboard.prospects.researched>=1);
  const prospects=await intelligenceAction('prospects',{status:'pending_review'});
@@ -29,6 +31,9 @@ test('scheduled engine creates deduplicated review tasks and never sends outreac
  assert.ok(brief.evidence.some(x=>x.source));
  assert.equal(brief.researchStatus,'verified');
  assert.ok(brief.evidence.some(x=>x.field==='website_research'));
+ assert.ok(brief.evidence.some(x=>x.field==='growth_lens_audit'));
+ const dashboard=await intelligenceAction('dashboard');
+ assert.ok(dashboard.prospects.audited>=1);
 
  const queue=await intelligenceAction('tasks',{status:'pending_review'});
  const item=queue.tasks.find(x=>x.source_id===created.id);
