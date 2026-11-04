@@ -125,8 +125,14 @@ configureProspectProvider(()=>{
   const tags=row.element?.tags||{};
   return {key:'nationwide:'+row.domain,name:tags.name||'',website:tags.website||'',city:tags['addr:city']||'',niche:row.niches?.[0]||'',source:'Wikidata nationwide verified catalog'};
  });
+ // Interleave catalog and mapped records so neither source starves when batches are capped.
+ const combined=[];
+ for(let i=0;i<Math.max(nationwide.length,mapped.length);i++){
+  if(i<nationwide.length)combined.push(nationwide[i]);
+  if(i<mapped.length)combined.push(mapped[i]);
+ }
  const seen=new Set(),entries=[];
- for(const item of [...nationwide,...mapped]){
+ for(const item of combined){
   const domain=catalogDomain(item.website);
   const key=domain?'domain:'+domain:item.key;
   if(!item.name||seen.has(key))continue;
