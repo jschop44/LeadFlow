@@ -19,9 +19,10 @@ jobs:
         if: env.LEADFLOW_AUTOMATION_TOKEN != ''
         shell: bash
         run: |
-          curl --fail-with-body --silent --show-error \
+          response=$(curl --fail-with-body --silent --show-error \
             --retry 2 --retry-delay 10 --max-time 100 \
             --request POST 'https://leadflow-research-api.onrender.com/automation' \
             --header 'Content-Type: application/json' \
             --header "X-LeadFlow-Token: ${LEADFLOW_AUTOMATION_TOKEN}" \
-            --data '{"action":"run"}'
+            --data '{"action":"run"}')
+          printf '%s' "$response" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("enabled") is True and not r.get("error"), "Intelligence cycle disabled or failed: " + str({k:v for k,v in r.items() if k not in ("token","secret")}); print("Intelligence cycle accepted:", {k:r.get(k) for k in ("lastRun","created","prospectsDiscovered","websitesResearched","growthLensAudits","skipped")})'
