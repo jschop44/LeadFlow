@@ -1,4 +1,23 @@
 import {randomUUID,createHash} from 'node:crypto';
+async function extractUploadedText(data){
+ const filename=String(data.filename||'').slice(0,180);
+ const raw=String(data.base64||'');
+ if(!/^[A-Za-z0-9+/]*={0,2}$/.test(raw)||raw.length>1900000||!raw)throw Error('Invalid or oversized upload');
+ const bytes=Buffer.from(raw,'base64');
+ if(bytes.length>1400000)throw Error('File exceeds 1.4 MB');
+ if(/\.(txt|md)$/i.test(filename))return bytes.toString('utf8');
+ if(/\.pdf$/i.test(filename)){
+  if(bytes.subarray(0,5).toString()!=='%PDF-')throw Error('Invalid PDF');
+  const {default:parse}=await import('pdf-parse');
+  return (await parse(bytes,{max:80})).text;
+ }
+ if(/\.docx$/i.test(filename)){
+  if(bytes.subarray(0,2).toString()!=='PK')throw Error('Invalid DOCX');
+  const {default:mammoth}=await import('mammoth');
+  return (await mammoth.extractRawText({buffer:bytes})).value;
+ }
+ throw Error('Only PDF, DOCX, TXT and MD files are supported');
+}
 const enabled=()=>process.env.KNOWLEDGE_BASE_ENABLED==='true';
 let pool,ready=false;
 export async function knowledgeAction(action,data={}){
@@ -12,6 +31,11 @@ export async function knowledgeAction(action,data={}){
   ready=true;
  }
  if(action==='status'){const r=await pool.query('SELECT collection,count(*)::int AS count FROM kb_documents WHERE NOT archived GROUP BY collection');return {enabled:true,collections:r.rows}}
+ if(action==='ingest-file'){
+  const content=await extractUploadedText(data);
+  if(content.trim().length<10)throw Error('No usable text found. Scanned PDFs need OCR.');
+  return knowledgeAction('ingest',{collection:data.collection,title:data.title||data.filename,content});
+ }
  if(action==='ingest'){
   const collection=String(data.collection||''),title=String(data.title||'').trim(),content=String(data.content||'').trim();
   if(!['business','prospects'].includes(collection)||!title||title.length>180||content.length<10||content.length>120000)throw Error('Invalid collection, title, or text (10-120000 characters)');
