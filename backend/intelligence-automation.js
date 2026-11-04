@@ -71,6 +71,26 @@ export async function intelligenceAction(action,data={}){
    const r=await pool.query('SELECT id,business_name,website,city,niche,source,status,discovered_at FROM kb_prospect_candidates WHERE status=$1 ORDER BY discovered_at DESC LIMIT 100',[status]);
    return {prospects:r.rows,source:'indexed OpenStreetMap snapshot',requiresHumanReview:true};
   }
+  if(action==='prospect-brief'){
+   const id=String(data.prospectId||'');
+   if(!/^[0-9a-f-]{36}$/i.test(id))throw Error('Invalid prospect id');
+   const result=await pool.query('SELECT id,business_name,website,city,niche,source,status FROM kb_prospect_candidates WHERE id=$1',[id]);
+   if(!result.rowCount)throw Error('Prospect not found');
+   const p=result.rows[0];
+   const verifiedWebsite=/^https:\/\//i.test(p.website||'');
+   const evidence=[{field:'business_name',value:p.business_name,source:p.source}];
+   if(p.city)evidence.push({field:'city',value:p.city,source:p.source});
+   if(p.niche)evidence.push({field:'niche',value:p.niche,source:p.source});
+   if(verifiedWebsite)evidence.push({field:'website',value:p.website,source:p.source});
+   const completeness=Math.min(100,35+(p.city?15:0)+(p.niche?15:0)+(verifiedWebsite?35:0));
+   return {prospectId:p.id,business:p.business_name,source:p.source,
+    evidence,completenessScore:completeness,scoreType:'source-data-completeness-not-sales-potential',
+    opportunity:'Website audit recommended before making performance or revenue claims',
+    outreachDraft:{subject:'Question about '+p.business_name,
+     body:'Hello,\\n\\nI came across '+p.business_name+' while researching businesses'+(p.city?' in '+p.city:'')+'. I help businesses review their website experience and lead-capture opportunities. Would you be open to a brief conversation about whether a website review would be useful?\\n\\nBest regards,\\n[Your name]'},
+    requiresHumanReview:true,automaticOutreach:false,
+    caveat:'Draft is generic and unverified. No website audit or contact verification has been performed.'};
+  }
   if(action==='review-prospect'){
    const id=String(data.prospectId||''),status=String(data.status||'');
    if(!/^[0-9a-f-]{36}$/i.test(id)||!['approved','dismissed'].includes(status))throw Error('Invalid prospect review');
