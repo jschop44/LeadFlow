@@ -1,4 +1,4 @@
-import {intelligenceAction,startIntelligenceScheduler,configureProspectProvider,configureResearchProvider} from './intelligence-automation.js';
+import {intelligenceAction,startIntelligenceScheduler,configureProspectProvider,configureResearchProvider,configureAuditProvider} from './intelligence-automation.js';
 import {knowledgeAction} from './knowledge-base.js';
 import {initLeadLibrary,leadLibraryReady,libraryAction,verifyLeadLibrary} from './lead-library.js';
 import {oauthStart,oauthCallback,oauthExchange,oauthDisconnect,oauthSend} from './email-oauth.js';
@@ -34,6 +34,14 @@ configureResearchProvider(async website=>{
  const description=(html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{1,300})/i)||[])[1]?.trim();
  if(!title&&!description)return {status:'unavailable',reason:'No page title or description verified'};
  return {status:'verified',summary:[title&&'Page title: '+title,description&&'Meta description: '+description].filter(Boolean).join(' | ')};
+});
+configureAuditProvider(async website=>{
+ const target=await validate(website);
+ const audit=await growthLensAudit(target.origin);
+ if(audit.status&&audit.status!=='completed')return {status:'unavailable',reason:'Growth Lens audit is not completed'};
+ const finding=auditOpportunity(audit,'website improvements');
+ if(!finding.verified)return {status:'unavailable',reason:'No verified actionable audit finding'};
+ return {status:'verified',finding:finding.finding+': '+finding.action};
 });
 function robotsOK(text,path){const groups=text.split(/(?=^user-agent\s*:)/im);let rules=[];for(const group of groups){const lines=group.split(/\r?\n/).map(x=>x.split('#')[0].trim());const agents=lines.filter(x=>/^user-agent\s*:/i.test(x)).map(x=>x.split(':').slice(1).join(':').trim().toLowerCase());if(!agents.includes('*')&&!agents.includes('leadflowbusinessresearch/1.0'))continue;for(const line of lines){const m=line.match(/^(allow|disallow)\s*:\s*(.*)$/i);if(m&&m[2])rules.push({allow:m[1].toLowerCase()==='allow',path:m[2]})}}const matched=rules.filter(r=>path.startsWith(r.path.split('*')[0])).sort((a,b)=>b.path.length-a.path.length)[0];return !matched||matched.allow}
 function extract(html,source){const plain=html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,' ').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,' ');const emails=[...new Set((plain.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi)||[]).filter(e=>!/(example\.|test\.|\.png$|\.jpg$|\.svg$|sentry)/i.test(e)))].slice(0,20);const phones=[...new Set((plain.replace(/<[^>]+>/g,' ').match(/(?:\+1[ .-]?)?\(?\d{3}\)?[ .-]?\d{3}[ .-]?\d{4}/g)||[]))].slice(0,10);const social=[];for(const m of plain.matchAll(/href\s*=\s*["']([^"']+)["']/gi)){try{const u=new URL(m[1],source);if(['linkedin.com','facebook.com','instagram.com','youtube.com','x.com','twitter.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h))&&!social.includes(u.href))social.push(u.href)}catch{}}return {emails,phones,socials:social.slice(0,15)}}
