@@ -245,7 +245,7 @@ $('automation-status').onclick=async()=>{
  try{
   const state=await automationRequest('dashboard');
   const p=state.prospects;
-  $('automation-message').textContent='Engine '+(state.enabled?'active':'disabled')+' · '+p.total+' prospects · '+p.pending+' awaiting review · '+p.researched+' websites researched · '+p.unavailable+' sites unavailable · '+state.suggestionsPending+' knowledge suggestions · Last run: '+(state.lastRun||'not yet');
+  $('automation-message').textContent='Engine '+(state.enabled?'active':'disabled')+' · '+p.total+' prospects · '+p.pending+' awaiting review · '+p.researched+' websites researched · '+p.audited+' Growth Lens findings · '+p.unavailable+' sites unavailable · '+state.suggestionsPending+' knowledge suggestions · Last run: '+(state.lastRun||'not yet');
  }catch(e){$('automation-message').textContent=e.message}
 };
 $('automation-run').onclick=async()=>{try{$('automation-message').textContent=JSON.stringify(await automationRequest('run'),null,2)}catch(e){$('automation-message').textContent=e.message}};
