@@ -121,7 +121,7 @@ configureProspectProvider(()=>{
   const tags=row.element?.tags||{};
   return {key,name:tags.name||'',website:tags.website||tags['contact:website']||'',city:tags['addr:city']||'',niche:row.niches?.[0]||'',source:'OpenStreetMap indexed snapshot'};
  });
- const nationwide=Array.from(onlineCatalog.values()).filter(row=>row.classification==='Online'||row.classification==='Local + Online').map(row=>{
+ const nationwide=Array.from(onlineCatalog.values()).filter(row=>['Online','Local + Online','Web presence'].includes(row.classification)).map(row=>{
   const tags=row.element?.tags||{};
   return {key:'nationwide:'+row.domain,name:tags.name||'',website:tags.website||'',city:tags['addr:city']||'',niche:row.niches?.[0]||'',source:'Wikidata nationwide verified catalog'};
  });
@@ -224,7 +224,7 @@ async function inspectBusinessWebsite(raw){
   const commerce=/\badd to cart\b|\bcheckout\b|\bbuy now\b|\/cart(?:["'/?#]|\b)|product-form__submit/i.test(html);
   const booking=/\bbook online\b|\bvirtual consultation\b|\bonline appointment\b|\bonline course\b/i.test(html);
   const platform=shopify?'Shopify':woo?'WooCommerce':'Not verified';
-  result={classification:commerce||booking||shopify||woo?'Online':'Unverified',platform,classificationEvidence:shopify?'Public Shopify storefront assets':woo?'Public WooCommerce storefront assets':commerce?'Public checkout/cart wording':booking?'Public online booking or remote-service wording':'No strong online commerce or service evidence'};
+  result={websiteReachable:true,classification:commerce||booking||shopify||woo?'Online':'Web presence',platform,classificationEvidence:shopify?'Public Shopify storefront assets':woo?'Public WooCommerce storefront assets':commerce?'Public checkout/cart wording':booking?'Public online booking or remote-service wording':'No strong online commerce or service evidence'};
  }catch(e){result.classificationEvidence='Website inspection unavailable: '+String(e.message).slice(0,90)}
  platformCache.set(hostname,{at:Date.now(),result});return result;
 }
@@ -285,10 +285,10 @@ async function discoverNationwideCandidates(){
    if(!domain||!name){rejected.missingWebsiteOrName++;continue}
    if(onlineCatalog.has(domain)){rejected.alreadyIndexed++;continue}
    const info=await inspectBusinessWebsite(website);
-   if(info.classification!=='Online'){rejected.notVerifiedOnline++;continue}
-   const evidence='Wikidata US country statement and public website inspection';
-   const element={type:'node',id:entity.id,tags:{name,website},classification:'Online',platform:info.platform,classificationEvidence:info.classificationEvidence,usEvidence:evidence};
-   const row={domain,niches:[niche],checkedAt:Date.now(),classification:'Online',platform:info.platform,evidence:info.classificationEvidence,usEvidence:evidence,element};
+   if(!info.websiteReachable){rejected.notVerifiedOnline++;continue}
+   const evidence='Wikidata US country statement and successful public website inspection';
+   const element={type:'node',id:entity.id,tags:{name,website},classification:info.classification,platform:info.platform,classificationEvidence:info.classificationEvidence,usEvidence:evidence};
+   const row={domain,niches:[niche],checkedAt:Date.now(),classification:info.classification,platform:info.platform,evidence:info.classificationEvidence,usEvidence:evidence,element};
    await catalogStore.save(row);verified++;
   }
   console.log('Nationwide discovery',JSON.stringify({niche,searchOffset:offset,candidates:ids.length,verified,rejected}));
