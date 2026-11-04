@@ -10,6 +10,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Install open-source document parsers
+        run: npm install --ignore-scripts --no-audit --no-fund
       - run: node --check backend/server.js
       - name: Validate frontend JavaScript syntax
         run: |
