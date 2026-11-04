@@ -1,16 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {knowledgeAction,closeKnowledgePool} from '../knowledge-base.js';
-import {runIntelligenceCycle,intelligenceAction} from '../intelligence-automation.js';
+import {runIntelligenceCycle,intelligenceAction,configureProspectProvider} from '../intelligence-automation.js';
 test('scheduled engine creates deduplicated review tasks and never sends outreach',async(t)=>{
  t.after(closeKnowledgePool);
  process.env.INTELLIGENCE_AUTOMATION_ENABLED='true';
  const created=await knowledgeAction('ingest',{collection:'business',title:'Automation integration '+Date.now(),content:'We improve website accessibility and conversion with lead capture forms and performance optimization. '+Date.now()});
  t.after(async()=>{await knowledgeAction('archive',{documentId:created.id})});
+ configureProspectProvider(()=>[{key:'ci-index-'+Date.now(),name:'CI Prospect Example',city:'Bel Air',niche:'Accountants'}]);
  const first=await runIntelligenceCycle();
  assert.equal(first.enabled,true);
  assert.ok(first.documentsScanned>=1);
  assert.equal(first.automaticOutreach,false);
+ assert.ok(first.prospectsDiscovered>=1);
+ const prospects=await intelligenceAction('prospects',{status:'pending_review'});
+ assert.ok(prospects.prospects.some(x=>x.business_name==='CI Prospect Example'));
  const queue=await intelligenceAction('tasks',{status:'pending_review'});
  const item=queue.tasks.find(x=>x.source_id===created.id);
  assert.ok(item,'document should produce reviewable opportunity');
