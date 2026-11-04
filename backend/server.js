@@ -30,7 +30,7 @@ configureResearchProvider(async website=>{
  const robots=await get(u.origin+'/robots.txt').catch(()=>null);
  if(robots===null||!robotsOK(robots,u.pathname||'/'))return {status:'unavailable',reason:'Robots policy unavailable or access disallowed'};
  const html=await get(u.origin+u.pathname);
- const title=(html.match(/<title[^>]*>([^<]{1,180})<\\/title>/i)||[])[1]?.replace(/\\s+/g,' ').trim();
+ const title=(html.match(new RegExp('<title[^>]*>([^<]{1,180})</title>','i'))||[])[1]?.replace(/\s+/g,' ').trim();
  const description=(html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{1,300})/i)||[])[1]?.trim();
  if(!title&&!description)return {status:'unavailable',reason:'No page title or description verified'};
  return {status:'verified',summary:[title&&'Page title: '+title,description&&'Meta description: '+description].filter(Boolean).join(' | ')};
