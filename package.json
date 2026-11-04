@@ -5,7 +5,8 @@
   "private": true,
   "scripts": {
     "start": "node backend/server.js",
-    "test:lead-library": "node tests/lead-library.integration.mjs"
+    "test:lead-library": "node tests/lead-library.integration.mjs",
+    "test:intelligence-flags": "node --test tests/intelligence-automation.flags.test.mjs"
   },
   "dependencies": {
     "pg": "^8.16.3",

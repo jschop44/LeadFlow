@@ -1,0 +1,27 @@
+name: Intelligence automation safety tests
+on:
+  push:
+    branches:
+      - hardening/automation-verification-20261104
+  pull_request:
+    paths:
+      - 'backend/intelligence-automation.js'
+      - 'backend/server.js'
+      - 'tests/intelligence-automation.flags.test.mjs'
+      - 'package.json'
+      - '.github/workflows/intelligence-safety.yml'
+  workflow_dispatch:
+jobs:
+  safety:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check backend/server.js
+      - run: node --check backend/intelligence-automation.js
+      - run: npm run test:intelligence-flags
