@@ -4,7 +4,7 @@ let pool,ready=false;
 export async function knowledgeAction(action,data={}){
  if(!enabled())throw Error('Knowledge base disabled by feature flag');
  if(!process.env.DATABASE_URL)throw Error('Persistent database not configured');
- if(!pool){const {default:pg}=await import('pg');pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false},max:2});}
+ if(!pool){const {default:pg}=await import('pg');pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:true},max:2,connectionTimeoutMillis:4000});}
  if(!ready){
   await pool.query(`CREATE TABLE IF NOT EXISTS kb_documents(id uuid PRIMARY KEY,collection text NOT NULL CHECK(collection IN ('business','prospects')),title text NOT NULL,content text NOT NULL,sha256 text NOT NULL,created_at timestamptz DEFAULT now(),archived boolean NOT NULL DEFAULT false)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS kb_feedback(id uuid PRIMARY KEY,document_id uuid REFERENCES kb_documents(id) ON DELETE CASCADE,signal text NOT NULL CHECK(signal IN ('useful','incorrect')),note text NOT NULL DEFAULT '',created_at timestamptz DEFAULT now())`);
@@ -30,11 +30,13 @@ export async function knowledgeAction(action,data={}){
  if(action==='context'){
   const query=String(data.query||'').trim().slice(0,250);
   if(!query)throw Error('Context query required');
-  const groups=await Promise.all(['business','prospects'].map(async collection=>{
+  const requested=String(data.collection||'business');
+  if(!['business','prospects'].includes(requested))throw Error('Explicit collection required');
+  const groups=await Promise.all([requested].map(async collection=>{
    const result=await knowledgeAction('search',{query,collection});
    return result.results.map(row=>({id:row.id,title:row.title,collection:row.collection,excerpt:String(row.excerpt||'').replace(/<[^>]*>/g,'').slice(0,1200),score:Number(row.score)}));
   }));
-  return {query,context:groups.flat().sort((a,b)=>b.score-a.score).slice(0,8),source:'knowledge-base',requiresHumanReview:true};
+  return {query,collection:requested,context:groups.flat().sort((a,b)=>b.score-a.score).slice(0,8),source:'knowledge-base',requiresHumanReview:true};
  }
  if(action==='learning-summary'){
   const r=await pool.query("SELECT d.collection,COUNT(DISTINCT d.id)::int AS documents,COUNT(f.id)::int AS feedback_events,COUNT(f.id) FILTER (WHERE f.signal='useful')::int AS useful,COUNT(f.id) FILTER (WHERE f.signal='incorrect')::int AS incorrect FROM kb_documents d LEFT JOIN kb_feedback f ON f.document_id=d.id WHERE NOT d.archived GROUP BY d.collection");
