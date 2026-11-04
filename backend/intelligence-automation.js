@@ -54,7 +54,7 @@ export async function runIntelligenceCycle(){
    if(!name||!key)continue;
    const result=await pool.query(`INSERT INTO kb_prospect_candidates(id,source_key,business_name,website,city,niche,source)
      VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(source_key) DO NOTHING RETURNING id`,
-     [randomUUID(),key,name,String(candidate.website||'').slice(0,300)||null,String(candidate.city||'').slice(0,120)||null,String(candidate.niche||'').slice(0,120)||null,'OpenStreetMap indexed snapshot']);
+     [randomUUID(),key,name,String(candidate.website||'').slice(0,300)||null,String(candidate.city||'').slice(0,120)||null,String(candidate.niche||'').slice(0,120)||null,String(candidate.source||'OpenStreetMap indexed snapshot').slice(0,100)]);
    discovered+=result.rowCount;
   }
   // Research a small, bounded batch. A failed website never blocks other candidates.
