@@ -255,11 +255,13 @@ $('automation-prospects').onclick=async()=>{
   const result=await automationRequest('prospects',{status:'pending_review'});
   $('automation-message').textContent=result.prospects.length+' prospects awaiting review';
   for(const item of result.prospects){
-   const row=document.createElement('div');
-   const name=document.createElement('strong');name.textContent=item.business_name;
-   const detail=document.createElement('p');detail.textContent=[item.city,item.niche,item.website,item.source].filter(Boolean).join(' | ');
+   const row=document.createElement('details');row.style.cssText='padding:10px 0;border-bottom:1px solid #40506a';
+   const name=document.createElement('summary');name.textContent=item.business_name+' · '+[item.city,item.niche].filter(Boolean).join(' · ');
+   const detail=document.createElement('p');detail.textContent=[item.website,item.source,item.research_status==='verified'?'Website researched':item.research_status==='unavailable'?'Website unavailable':'Website research pending'].filter(Boolean).join(' | ');
    const approve=document.createElement('button');approve.textContent='Approve prospect';approve.type='button';
    approve.onclick=async()=>{try{await automationRequest('review-prospect',{prospectId:item.id,status:'approved'});row.remove()}catch(e){$('automation-message').textContent=e.message}};
+   const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='Dismiss';dismiss.className='secondary';
+   dismiss.onclick=async()=>{try{const result=await automationRequest('review-prospect',{prospectId:item.id,status:'dismissed'});if(result.updated)row.remove()}catch(e){$('automation-message').textContent=e.message}};
    const briefButton=document.createElement('button');briefButton.type='button';briefButton.textContent='Research brief + draft';
    briefButton.onclick=async()=>{
     try{
@@ -269,7 +271,7 @@ $('automation-prospects').onclick=async()=>{
      row.append(block);
     }catch(e){$('automation-message').textContent=e.message}
    };
-   row.append(name,detail,approve,briefButton);panel.append(row);
+   row.append(name,detail,approve,dismiss,briefButton);panel.append(row);
   }
  }catch(e){$('automation-message').textContent=e.message}
 };
