@@ -23,3 +23,18 @@ Set `KNOWLEDGE_BASE_ENABLED=false` in both services and redeploy. Do not delete 
 
 ## Known limitations
 No OCR, no automatic background crawling of private documents, no automated model retraining, no verified conversion uplift. A live database integration test and security review are required before rollout.
+
+## Learning controls
+- A document receiving at least two `incorrect` feedback events is flagged for review and excluded from assembled offer context until corrected or replaced. It remains visible in search for inspection.
+- Observed `qualified`, `won`, and `lost` outcomes adjust document retrieval scores only within fixed bounds. They do not prove causality.
+- Use the document manager to archive superseded content. Archiving is reversible at the database level but there is no unarchive UI yet.
+- Source IDs remain attached to evidence; do not copy generated previews into automatic send queues.
+
+## Release acceptance criteria
+- Both repositories' automated tests pass on the exact deployed commit.
+- Render deploy status is `live` for both services.
+- Verify feature flags are off and private endpoints reject unauthorized requests.
+- Verify PDF, DOCX, TXT and MD ingestion with non-sensitive samples in an isolated database.
+- Verify feedback changes ranking, disputed documents are excluded from offer previews, and business/prospect collections remain separate.
+- Verify a Growth Lens audit can retrieve evidence through the shared token without modifying existing audit reports.
+- Confirm Gmail sending still requires explicit approval.
