@@ -77,6 +77,7 @@ export async function knowledgeAction(action,data={}){
   const sources=evidence.context.slice(0,4);
   return {prospect,query,readyForSending:false,requiresHumanReview:true,
    suggestedOpening:'Hello '+prospect+',',
+   draft:sources.length?'Hello '+prospect+',\\n\\nI noticed an opportunity related to '+query+'. We may be able to help based on our documented capabilities. Would you be open to a brief conversation to see whether there is a fit?\\n\\nPlease review the source excerpts and personalize this message before sending.':'No grounded draft available: add relevant business knowledge first.',
    evidence:sources.map(item=>({documentId:item.id,title:item.title,excerpt:item.excerpt})),
    recommendation:sources.length?'Review the sourced business capabilities below and customize a relevant offer.':'No verified matching business capabilities found. Add source documents before drafting an offer.',
    caution:'No pricing, performance claims, or outcomes are inferred. Human approval is required before sending.'};
