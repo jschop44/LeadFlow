@@ -60,7 +60,7 @@ jobs:
         env:
           DATABASE_URL: postgresql://kb_test:kb_test_password@127.0.0.1:5432/kb_test
           KNOWLEDGE_BASE_ENABLED: 'true'
-        run: node --test backend/integration/knowledge-postgres.mjs backend/integration/intelligence-automation-postgres.mjs
+        run: node --test --test-concurrency=1 backend/integration/knowledge-postgres.mjs backend/integration/intelligence-automation-postgres.mjs
       - name: Validate expanded Maryland coverage
         run: |
           node --input-type=module <<'NODE'
