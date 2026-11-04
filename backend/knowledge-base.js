@@ -34,8 +34,9 @@ export async function knowledgeAction(action,data={}){
  if(action==='list'){
   const collection=String(data.collection||'');
   if(!['business','prospects'].includes(collection))throw Error('Collection required');
-  const r=await pool.query('SELECT id,title,created_at FROM kb_documents WHERE collection=$1 AND NOT archived ORDER BY created_at DESC LIMIT 100',[collection]);
-  return {collection,documents:r.rows};
+  const archived=data.archived===true;
+  const r=await pool.query('SELECT id,title,created_at,archived FROM kb_documents WHERE collection=$1 AND archived=$2 ORDER BY created_at DESC LIMIT 100',[collection,archived]);
+  return {collection,archived,documents:r.rows};
  }
  if(action==='status'){const r=await pool.query('SELECT collection,count(*)::int AS count FROM kb_documents WHERE NOT archived GROUP BY collection');return {enabled:true,collections:r.rows}}
  if(action==='ingest-file'){
@@ -103,6 +104,12 @@ export async function knowledgeAction(action,data={}){
   if(!/^[0-9a-f-]{36}$/i.test(id)||!['useful','incorrect'].includes(signal))throw Error('Invalid feedback');
   const found=await pool.query('SELECT id FROM kb_documents WHERE id=$1 AND NOT archived',[id]);if(!found.rows.length)throw Error('Document not found');
   await pool.query('INSERT INTO kb_feedback(id,document_id,signal,note) VALUES($1,$2,$3,$4)',[randomUUID(),id,signal,note]);return {recorded:true,automaticModelTraining:false};
+ }
+ if(action==='restore'){
+  const id=String(data.documentId||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id))throw Error('Invalid document ID');
+  const r=await pool.query('UPDATE kb_documents SET archived=false WHERE id=$1 AND archived=true RETURNING id',[id]);
+  return {restored:r.rowCount===1};
  }
  if(action==='archive'){
   const id=String(data.documentId||'');if(!/^[0-9a-f-]{36}$/i.test(id))throw Error('Invalid document ID');
