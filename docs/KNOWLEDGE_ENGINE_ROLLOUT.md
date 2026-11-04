@@ -38,3 +38,6 @@ No OCR, no automatic background crawling of private documents, no automated mode
 - Verify feedback changes ranking, disputed documents are excluded from offer previews, and business/prospect collections remain separate.
 - Verify a Growth Lens audit can retrieve evidence through the shared token without modifying existing audit reports.
 - Confirm Gmail sending still requires explicit approval.
+
+## CI release gate
+The LeadFlow test workflow now installs open-source PDF.js and Mammoth parsers, generates real PDF and DOCX fixtures, and starts a disposable PostgreSQL 16 service. The knowledge integration suite checks ingestion, deduplication, collection isolation, search, sourced offer previews, disputed-document exclusion, feedback, observed outcomes, archive and restore. These tests do not use production Neon data.
