@@ -87,7 +87,7 @@ export async function intelligenceAction(action,data={}){
     evidence,completenessScore:completeness,scoreType:'source-data-completeness-not-sales-potential',
     opportunity:'Website audit recommended before making performance or revenue claims',
     outreachDraft:{subject:'Question about '+p.business_name,
-     body:'Hello,\\n\\nI came across '+p.business_name+' while researching businesses'+(p.city?' in '+p.city:'')+'. I help businesses review their website experience and lead-capture opportunities. Would you be open to a brief conversation about whether a website review would be useful?\\n\\nBest regards,\\n[Your name]'},
+     body:'Hello,\n\nI came across '+p.business_name+' while researching businesses'+(p.city?' in '+p.city:'')+'. I help businesses review their website experience and lead-capture opportunities. Would you be open to a brief conversation about whether a website review would be useful?\n\nBest regards,\n[Your name]'},
     requiresHumanReview:true,automaticOutreach:false,
     caveat:'Draft is generic and unverified. No website audit or contact verification has been performed.'};
   }
