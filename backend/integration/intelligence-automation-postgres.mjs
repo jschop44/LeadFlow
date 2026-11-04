@@ -33,7 +33,6 @@ test('scheduled engine creates deduplicated review tasks and never sends outreac
  assert.equal(brief.researchStatus,'verified');
  assert.ok(brief.evidence.some(x=>x.field==='website_research'));
  assert.ok(brief.evidence.some(x=>x.field==='growth_lens_audit'));
- const dashboard=await intelligenceAction('dashboard');
  assert.ok(dashboard.prospects.audited>=1);
 
  const queue=await intelligenceAction('tasks',{status:'pending_review'});
