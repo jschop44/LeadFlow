@@ -168,7 +168,27 @@ async function startEmailConnection(provider){
 $('connect-gmail').onclick=()=>startEmailConnection('google');
 $('connect-microsoft').onclick=()=>startEmailConnection('microsoft');
 $('disconnect-email').onclick=async()=>{if(emailSession)await fetch(emailApi+'/oauth/disconnect',{method:'POST',headers:{authorization:'Bearer '+emailSession}}).catch(()=>{});emailSession='';emailProvider='';emailConnectionUI()};
-(async()=>{const errorMatch=location.hash.match(/^#oauth-error=(.+)$/);if(errorMatch){history.replaceState(null,'',location.pathname+location.search);let message='Email connection unavailable';try{message=decodeURIComponent(errorMatch[1])}catch{}$('outreach-note').textContent=message.includes('credentials are not configured')?'Email connection setup required: '+message+'. Register the provider OAuth app and configure its client ID and secret in the backend.':'Email connection failed: '+message;$('outreach-note').scrollIntoView({behavior:'smooth',block:'center'});return}const match=location.hash.match(/^#oauth-ticket=(.+)$/);if(!match)return;history.replaceState(null,'',location.pathname+location.search);try{const response=await fetch(emailApi+'/oauth/exchange',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ticket:decodeURIComponent(match[1])})});const result=await response.json();if(!response.ok)throw Error(result.error||'Connection failed');emailSession=result.session;emailProvider=result.provider;emailConnectionUI();$('outreach-note').textContent='Email connected securely for this browser tab. Select a lead and generate an email.'}catch(e){$('outreach-note').textContent='Email connection failed: '+e.message}})();
+(async()=>{const errorMatch=location.hash.match(/^#oauth-error=(.+)$/);if(errorMatch){history.replaceState(null,'',location.pathname+location.search);let message='Email connection unavailable';try{message=decodeURIComponent(errorMatch[1])}catch{}$('outreach-note').textContent=message.includes('credentials are not configured')?'Email connection setup required: '+message+'. Register the provider OAuth app and configure its client ID and secret in the backend.':'Email connection failed: '+message;$('outreach-note').scrollIntoView({behavior:'smooth',block:'center'});return}const match=location.hash.match(/^#oauth-ticket=(.+)$/);if(!match)return;
+const ticket=decodeURIComponent(match[1]);
+$('outreach-note').textContent='Finishing secure email connection...';
+try{
+ let result,lastError;
+ for(let attempt=0;attempt<3;attempt++){
+  try{
+   const response=await fetch(emailApi+'/oauth/exchange',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({ticket}),signal:AbortSignal.timeout(20000)});
+   result=await response.json();
+   if(!response.ok)throw Error(result.error||'Connection failed');
+   break;
+  }catch(e){lastError=e;if(attempt<2&&e instanceof TypeError){await new Promise(resolve=>setTimeout(resolve,1200*(attempt+1)));continue}throw e}
+ }
+ if(!result?.session)throw lastError||Error('Missing email session');
+ emailSession=result.session;emailProvider=result.provider;emailConnectionUI();
+ history.replaceState(null,'',location.pathname+location.search);
+ $('outreach-note').textContent='Email connected securely for this browser tab. Select a lead and generate an email.';
+}catch(e){
+ $('outreach-note').textContent='Email connection could not finish: '+e.message+'. The authorization ticket is preserved in this page. Check the API connection and refresh to retry; do not share the URL.';
+ $('outreach-note').scrollIntoView({behavior:'smooth',block:'center'});
+}})();
 $('send-connected').onclick=async()=>{
  if(!emailSession){$('outreach-note').textContent='Connect Gmail or Microsoft 365 first. If provider authorization is not configured, use Open email app to compose manually; LeadFlow cannot send without authorized account access.';return}if(!selectedDraftLead||lastDraftMode!=='email'){$('outreach-note').textContent='Select a lead and generate an email draft first.';return}
  const to=String(selectedDraftLead.email||selectedDraftLead.enrichedEmails?.[0]||'').trim();
