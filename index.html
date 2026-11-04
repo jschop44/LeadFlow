@@ -259,7 +259,7 @@ $('automation-prospects').onclick=async()=>{
     try{
      const brief=await automationRequest('prospect-brief',{prospectId:item.id});
      const block=document.createElement('pre');block.style.whiteSpace='pre-wrap';
-     block.textContent='Evidence: '+brief.evidence.map(e=>e.field+': '+e.value+' ('+e.source+')').join('; ')+'\\nData completeness: '+brief.completenessScore+'/100 (not sales potential)\\n'+brief.caveat+'\\n\\n'+brief.outreachDraft.subject+'\\n'+brief.outreachDraft.body;
+     block.textContent='Evidence: '+brief.evidence.map(e=>e.field+': '+e.value+' ('+e.source+')').join('; ')+'\nData completeness: '+brief.completenessScore+'/100 (not sales potential)\n'+brief.caveat+'\n\n'+brief.outreachDraft.subject+'\n'+brief.outreachDraft.body;
      row.append(block);
     }catch(e){$('automation-message').textContent=e.message}
    };
