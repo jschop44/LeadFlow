@@ -10,6 +10,8 @@ const patterns=[
 ];
 let running=false,lastRun=null,lastError=null,lastCount=0;
 let prospectProvider=()=>[];
+let researchProvider=async()=>({status:'unavailable',reason:'No research provider configured'});
+export function configureResearchProvider(provider){if(typeof provider!=='function')throw Error('Research provider must be a function');researchProvider=provider;}
 export function configureProspectProvider(provider){if(typeof provider!=='function')throw Error('Prospect provider must be a function');prospectProvider=provider;}
 const enabled=()=>process.env.KNOWLEDGE_BASE_ENABLED==='true'&&process.env.INTELLIGENCE_AUTOMATION_ENABLED==='true';
 const db=async()=>{const {default:pg}=await import('pg');const u=new URL(process.env.DATABASE_URL);return new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:['localhost','127.0.0.1'].includes(u.hostname)?false:{rejectUnauthorized:true},max:1,connectionTimeoutMillis:4000})};
@@ -29,6 +31,9 @@ export async function runIntelligenceCycle(){
    website text,city text,niche text,source text NOT NULL,
    status text NOT NULL DEFAULT 'pending_review' CHECK(status IN ('pending_review','approved','dismissed')),
    discovered_at timestamptz NOT NULL DEFAULT now())`);
+  await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS research_status text NOT NULL DEFAULT 'pending'`);
+  await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS research_summary text`);
+  await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS researched_at timestamptz`);
   let discovered=0;
   const candidates=await Promise.resolve(prospectProvider());
   for(const candidate of (Array.isArray(candidates)?candidates:[]).slice(0,100)){
@@ -39,6 +44,20 @@ export async function runIntelligenceCycle(){
      VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(source_key) DO NOTHING RETURNING id`,
      [randomUUID(),key,name,String(candidate.website||'').slice(0,300)||null,String(candidate.city||'').slice(0,120)||null,String(candidate.niche||'').slice(0,120)||null,'OpenStreetMap indexed snapshot']);
    discovered+=result.rowCount;
+  }
+  // Research a small, bounded batch. A failed website never blocks other candidates.
+  const researchBatch=await pool.query(`SELECT id,website FROM kb_prospect_candidates
+    WHERE website IS NOT NULL AND website<>'' AND (researched_at IS NULL OR researched_at<now()-interval '7 days')
+    ORDER BY researched_at ASC NULLS FIRST,discovered_at ASC LIMIT 3`);
+  let researched=0,failedResearch=0;
+  for(const candidate of researchBatch.rows){
+   let result;
+   try{result=await researchProvider(candidate.website)}
+   catch(e){result={status:'unavailable',reason:String(e.message||e).slice(0,120)}}
+   const status=result?.status==='verified'?'verified':'unavailable';
+   const summary=String(result?.summary||result?.reason||'No verified website evidence').slice(0,450);
+   await pool.query('UPDATE kb_prospect_candidates SET research_status=$2,research_summary=$3,researched_at=now() WHERE id=$1',[candidate.id,status,summary]);
+   if(status==='verified')researched++;else failedResearch++;
   }
   const documents=await pool.query(`SELECT d.id,d.title,d.content,d.collection
     FROM kb_documents d WHERE NOT d.archived AND d.collection='business'
@@ -55,7 +74,7 @@ export async function runIntelligenceCycle(){
    }
   }
   lastRun=new Date().toISOString();lastError=null;lastCount=created+discovered;
-  return {enabled:true,created,prospectsDiscovered:discovered,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
+  return {enabled:true,created,prospectsDiscovered:discovered,websitesResearched:researched,websiteResearchUnavailable:failedResearch,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
  }catch(e){lastError=String(e.message||e).slice(0,180);return {enabled:true,error:lastError,lastRun}}
  finally{running=false;if(pool)await pool.end().catch(()=>{})}
 }
@@ -68,13 +87,13 @@ export async function intelligenceAction(action,data={}){
   if(action==='prospects'){
    const status=String(data.status||'pending_review');
    if(!['pending_review','approved','dismissed'].includes(status))throw Error('Invalid prospect status');
-   const r=await pool.query('SELECT id,business_name,website,city,niche,source,status,discovered_at FROM kb_prospect_candidates WHERE status=$1 ORDER BY discovered_at DESC LIMIT 100',[status]);
+   const r=await pool.query('SELECT id,business_name,website,city,niche,source,status,discovered_at,research_status,research_summary,researched_at FROM kb_prospect_candidates WHERE status=$1 ORDER BY discovered_at DESC LIMIT 100',[status]);
    return {prospects:r.rows,source:'indexed OpenStreetMap snapshot',requiresHumanReview:true};
   }
   if(action==='prospect-brief'){
    const id=String(data.prospectId||'');
    if(!/^[0-9a-f-]{36}$/i.test(id))throw Error('Invalid prospect id');
-   const result=await pool.query('SELECT id,business_name,website,city,niche,source,status FROM kb_prospect_candidates WHERE id=$1',[id]);
+   const result=await pool.query('SELECT id,business_name,website,city,niche,source,status,research_status,research_summary,researched_at FROM kb_prospect_candidates WHERE id=$1',[id]);
    if(!result.rowCount)throw Error('Prospect not found');
    const p=result.rows[0];
    const verifiedWebsite=/^https:\/\//i.test(p.website||'');
@@ -82,14 +101,16 @@ export async function intelligenceAction(action,data={}){
    if(p.city)evidence.push({field:'city',value:p.city,source:p.source});
    if(p.niche)evidence.push({field:'niche',value:p.niche,source:p.source});
    if(verifiedWebsite)evidence.push({field:'website',value:p.website,source:p.source});
+   if(p.research_status==='verified'&&p.research_summary)evidence.push({field:'website_research',value:p.research_summary,source:p.website});
    const completeness=Math.min(100,35+(p.city?15:0)+(p.niche?15:0)+(verifiedWebsite?35:0));
    return {prospectId:p.id,business:p.business_name,source:p.source,
     evidence,completenessScore:completeness,scoreType:'source-data-completeness-not-sales-potential',
     opportunity:'Website audit recommended before making performance or revenue claims',
     outreachDraft:{subject:'Question about '+p.business_name,
      body:`Hello,\n\nI came across ${p.business_name} while researching businesses${p.city?' in '+p.city:''}. I help businesses review their website experience and lead-capture opportunities. Would you be open to a brief conversation about whether a website review would be useful?\n\nBest regards,\n[Your name]`},
+    researchStatus:p.research_status||'pending',researchedAt:p.researched_at||null,
     requiresHumanReview:true,automaticOutreach:false,
-    caveat:'Draft is generic and unverified. No website audit or contact verification has been performed.'};
+    caveat:'Draft is generic. Website research, if available, is preliminary and not a full Growth Lens audit. No contact verification has been performed.'};
   }
   if(action==='review-prospect'){
    const id=String(data.prospectId||''),status=String(data.status||'');
