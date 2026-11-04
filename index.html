@@ -56,10 +56,10 @@
 <button id="compose-social" class="secondary" disabled>Open message composer</button>
 <button id="open-social" class="secondary" onclick="window.leadflowOpenSocial && window.leadflowOpenSocial()">Open social profile</button>
 </div><details id="outreach-settings" style="margin:18px 0"><summary>One-time sender and service setup</summary><p class="muted">Save your offering and sender details once on this device. They are reused for each lead.</p><div class="filters"><div><label for="out-service">Service you offer</label><input id="out-service" placeholder="e.g. Website conversion optimization"></div><div><label for="out-sender">Your business name and postal address</label><input id="out-sender" placeholder="Business name and address"></div><div><label for="out-optout">Opt-out instructions</label><input id="out-optout" placeholder="Reply unsubscribe"></div></div><div class="actions"><button id="save-outreach-settings" class="secondary">Save settings on this device</button></div></details><div style="margin:14px 0"><label for="manual-recipient">Recipient email address (editable fallback)</label><input id="manual-recipient" type="email" autocomplete="off" inputmode="email" placeholder="Enter a business contact email, if known" style="max-width:560px"><p id="recipient-source" class="muted" style="font-size:13px;margin:6px 0">No recipient selected. You can enter a known business email address manually.</p></div><div id="outreach-note" class="muted" style="margin:12px 0">Select a business above to begin.</div><details id="knowledge-panel" style="margin:14px 0"><summary>Knowledge Base — private document intelligence</summary>
-<p class="muted">Available only when the backend knowledge feature is enabled. Text and .txt/.md files are supported in this first stage. PDF and Word extraction are not yet supported. Use your existing API access token.</p>
+<p class="muted">Available only when the backend knowledge feature is enabled. Upload PDF, DOCX, TXT, or Markdown (up to 1.4 MB). Scanned PDFs require OCR and are not yet supported. Use your existing API access token.</p>
 <label for="kb-collection">Knowledge collection</label><select id="kb-collection"><option value="business">My business and services</option><option value="prospects">Prospect intelligence</option></select>
 <label for="kb-title">Document title</label><input id="kb-title" maxlength="180" placeholder="Services and pricing">
-<label for="kb-file">Upload plain text or Markdown</label><input id="kb-file" type="file" accept=".txt,.md,text/plain,text/markdown">
+<label for="kb-file">Upload PDF, Word, text or Markdown</label><input id="kb-file" type="file" accept=".pdf,.docx,.txt,.md">
 <label for="kb-content">Document text</label><textarea id="kb-content" rows="5" placeholder="Paste information or choose a text file..."></textarea>
 <div class="actions" style="margin:10px 0"><button id="kb-ingest" type="button">Save to knowledge base</button></div>
 <label for="kb-query">Search knowledge</label><input id="kb-query" placeholder="e.g. website conversion pricing">
@@ -234,10 +234,11 @@ async function knowledgeRequest(action,fields={}){
 }
 $('kb-file').onchange=async()=>{
  const file=$('kb-file').files?.[0];if(!file)return;
- if(!/\.(txt|md)$/i.test(file.name)||file.size>120000){$('kb-status').textContent='Only .txt or .md files up to 120 KB are supported.';return}
+ if(!/\.(txt|md|pdf|docx)$/i.test(file.name)||file.size>1400000){$('kb-status').textContent='Choose PDF, DOCX, TXT or MD under 1.4 MB.';return}
  $('kb-title').value=$('kb-title').value||file.name;
- $('kb-content').value=await file.text();
- $('kb-status').textContent='File loaded for review. Click Save to knowledge base to ingest.';
+ if(/\.(txt|md)$/i.test(file.name))$('kb-content').value=await file.text();
+ else $('kb-content').value='';
+ $('kb-status').textContent='File selected. Click Save to ingest. PDF and DOCX text will be extracted on the server.';
 };
 $('kb-summary').onclick=async()=>{
  try{
@@ -261,8 +262,15 @@ $('kb-context').onclick=async()=>{
 $('kb-ingest').onclick=async()=>{
  try{
   $('kb-status').textContent='Saving knowledge...';
-  const result=await knowledgeRequest('ingest',{collection:$('kb-collection').value,title:$('kb-title').value,content:$('kb-content').value});
-  $('kb-status').textContent=result.duplicate?'This document already exists in the collection.':'Saved document '+result.id;
+  const file=$('kb-file').files?.[0];
+  let result;
+  if(file){
+   if(file.size>1400000)throw Error('File too large');
+   const bytes=new Uint8Array(await file.arrayBuffer());
+   let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));
+   result=await knowledgeRequest('ingest-file',{collection:$('kb-collection').value,title:$('kb-title').value,filename:file.name,base64:btoa(binary)});
+  }else result=await knowledgeRequest('ingest',{collection:$('kb-collection').value,title:$('kb-title').value,content:$('kb-content').value});
+  $('kb-status').textContent=result.duplicate?'This document already exists.':'Saved document '+result.id;
  }catch(e){$('kb-status').textContent='Knowledge upload failed: '+e.message}
 };
 $('kb-search').onclick=async()=>{
