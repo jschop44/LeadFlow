@@ -55,7 +55,7 @@ export async function knowledgeAction(action,data={}){
  if(action==='search'){
   const q=String(data.query||'').trim().slice(0,250),collection=String(data.collection||'');
   if(!q||!['business','prospects'].includes(collection))throw Error('Search query and collection required');
-  const r=await pool.query(`SELECT d.id,d.title,d.collection,(ts_rank_cd(to_tsvector('english',d.content),websearch_to_tsquery('english',$1)) + COALESCE(f.adjustment,0) + COALESCE(o.adjustment,0)) AS score,ts_headline('english',d.content,websearch_to_tsquery('english',$1),'MaxFragments=3,MaxWords=35,MinWords=8') AS excerpt FROM kb_documents d LEFT JOIN (SELECT document_id,LEAST(0.2,GREATEST(-0.2,SUM(CASE WHEN signal='useful' THEN 0.02 ELSE -0.05 END))) AS adjustment FROM kb_feedback GROUP BY document_id) f ON f.document_id=d.id LEFT JOIN (SELECT document_id,LEAST(0.15,GREATEST(-0.15,SUM(CASE WHEN stage='won' THEN 0.03 WHEN stage='qualified' THEN 0.01 WHEN stage='lost' THEN -0.02 ELSE 0 END))) AS adjustment FROM kb_outcomes GROUP BY document_id) o ON o.document_id=d.id WHERE d.collection=$2 AND NOT d.archived AND to_tsvector('english',d.content) @@ websearch_to_tsquery('english',$1) ORDER BY score DESC LIMIT 8`,[q,collection]);
+  const r=await pool.query(`SELECT d.id,d.title,d.collection,(COALESCE(f.incorrect_count,0)>=2) AS needs_review,(ts_rank_cd(to_tsvector('english',d.content),websearch_to_tsquery('english',$1)) + COALESCE(f.adjustment,0) + COALESCE(o.adjustment,0)) AS score,ts_headline('english',d.content,websearch_to_tsquery('english',$1),'MaxFragments=3,MaxWords=35,MinWords=8') AS excerpt FROM kb_documents d LEFT JOIN (SELECT document_id,LEAST(0.2,GREATEST(-0.2,SUM(CASE WHEN signal='useful' THEN 0.02 ELSE -0.05 END))) AS adjustment,COUNT(*) FILTER (WHERE signal='incorrect')::int AS incorrect_count FROM kb_feedback GROUP BY document_id) f ON f.document_id=d.id LEFT JOIN (SELECT document_id,LEAST(0.15,GREATEST(-0.15,SUM(CASE WHEN stage='won' THEN 0.03 WHEN stage='qualified' THEN 0.01 WHEN stage='lost' THEN -0.02 ELSE 0 END))) AS adjustment FROM kb_outcomes GROUP BY document_id) o ON o.document_id=d.id WHERE d.collection=$2 AND NOT d.archived AND to_tsvector('english',d.content) @@ websearch_to_tsquery('english',$1) ORDER BY score DESC LIMIT 8`,[q,collection]);
   return {results:r.rows,source:'uploaded-knowledge',learning:'bounded-feedback-ranking',note:'Feedback and observed outcomes influence ranking, not factual truth or causal ROI'};
  }
  if(action==='context'){
@@ -65,7 +65,7 @@ export async function knowledgeAction(action,data={}){
   if(!['business','prospects'].includes(requested))throw Error('Explicit collection required');
   const groups=await Promise.all([requested].map(async collection=>{
    const result=await knowledgeAction('search',{query,collection});
-   return result.results.map(row=>({id:row.id,title:row.title,collection:row.collection,excerpt:String(row.excerpt||'').replace(/<[^>]*>/g,'').slice(0,1200),score:Number(row.score)}));
+   return result.results.filter(row=>!row.needs_review).map(row=>({id:row.id,title:row.title,collection:row.collection,excerpt:String(row.excerpt||'').replace(/<[^>]*>/g,'').slice(0,1200),score:Number(row.score)}));
   }));
   return {query,collection:requested,context:groups.flat().sort((a,b)=>b.score-a.score).slice(0,8),source:'knowledge-base',requiresHumanReview:true};
  }
