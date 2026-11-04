@@ -84,6 +84,18 @@ export async function intelligenceAction(action,data={}){
  if(action==='status')return {enabled:true,running,lastRun,lastError,lastCount,intervalMinutes:Math.round(INTERVAL_MS/60000),automaticOutreach:false};
  const pool=await db();
  try{
+  if(action==='dashboard'){
+   const r=await pool.query(`SELECT
+    count(*)::int AS total,
+    count(*) FILTER(WHERE status='pending_review')::int AS pending,
+    count(*) FILTER(WHERE status='approved')::int AS approved,
+    count(*) FILTER(WHERE research_status='verified')::int AS researched,
+    count(*) FILTER(WHERE research_status='unavailable')::int AS unavailable,
+    count(*) FILTER(WHERE website IS NOT NULL AND website<>'')::int AS with_website
+    FROM kb_prospect_candidates`);
+   const q=await pool.query("SELECT count(*)::int AS pending FROM kb_intelligence_tasks WHERE status='pending_review'");
+   return {enabled:true,prospects:r.rows[0],suggestionsPending:q.rows[0].pending,lastRun,lastError,automaticOutreach:false};
+  }
   if(action==='prospects'){
    const status=String(data.status||'pending_review');
    if(!['pending_review','approved','dismissed'].includes(status))throw Error('Invalid prospect status');
