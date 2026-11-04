@@ -39,4 +39,10 @@ test('full PostgreSQL knowledge lifecycle isolates collections and learns from f
  assert.equal(archived.archived,true);
  const after=await knowledgeAction('search',{collection:'business',query:'accessibility'});
  assert.ok(!after.results.some(x=>x.id===created.id));
+ const archivedList=await knowledgeAction('list',{collection:'business',archived:true});
+ assert.ok(archivedList.documents.some(x=>x.id===created.id));
+ const restored=await knowledgeAction('restore',{documentId:created.id});
+ assert.equal(restored.restored,true);
+ const restoredSearch=await knowledgeAction('search',{collection:'business',query:'accessibility'});
+ assert.ok(restoredSearch.results.some(x=>x.id===created.id));
 });
