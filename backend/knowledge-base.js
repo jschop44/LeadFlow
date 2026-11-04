@@ -62,6 +62,18 @@ export async function knowledgeAction(action,data={}){
   }));
   return {query,collection:requested,context:groups.flat().sort((a,b)=>b.score-a.score).slice(0,8),source:'knowledge-base',requiresHumanReview:true};
  }
+ if(action==='offer-preview'){
+  const query=String(data.query||'').trim().slice(0,250);
+  const prospect=String(data.prospect||'Prospect').trim().slice(0,120);
+  if(!query)throw Error('Opportunity query required');
+  const evidence=await knowledgeAction('context',{query,collection:'business'});
+  const sources=evidence.context.slice(0,4);
+  return {prospect,query,readyForSending:false,requiresHumanReview:true,
+   suggestedOpening:'Hello '+prospect+',',
+   evidence:sources.map(item=>({documentId:item.id,title:item.title,excerpt:item.excerpt})),
+   recommendation:sources.length?'Review the sourced business capabilities below and customize a relevant offer.':'No verified matching business capabilities found. Add source documents before drafting an offer.',
+   caution:'No pricing, performance claims, or outcomes are inferred. Human approval is required before sending.'};
+ }
  if(action==='learning-summary'){
   const r=await pool.query("SELECT d.collection,COUNT(DISTINCT d.id)::int AS documents,COUNT(f.id)::int AS feedback_events,COUNT(f.id) FILTER (WHERE f.signal='useful')::int AS useful,COUNT(f.id) FILTER (WHERE f.signal='incorrect')::int AS incorrect FROM kb_documents d LEFT JOIN kb_feedback f ON f.document_id=d.id WHERE NOT d.archived GROUP BY d.collection");
   return {collections:r.rows,modelTraining:false,method:'bounded-feedback-ranking'};
