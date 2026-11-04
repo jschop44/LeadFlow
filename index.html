@@ -254,7 +254,16 @@ $('automation-prospects').onclick=async()=>{
    const detail=document.createElement('p');detail.textContent=[item.city,item.niche,item.website,item.source].filter(Boolean).join(' | ');
    const approve=document.createElement('button');approve.textContent='Approve prospect';approve.type='button';
    approve.onclick=async()=>{try{await automationRequest('review-prospect',{prospectId:item.id,status:'approved'});row.remove()}catch(e){$('automation-message').textContent=e.message}};
-   row.append(name,detail,approve);panel.append(row);
+   const briefButton=document.createElement('button');briefButton.type='button';briefButton.textContent='Research brief + draft';
+   briefButton.onclick=async()=>{
+    try{
+     const brief=await automationRequest('prospect-brief',{prospectId:item.id});
+     const block=document.createElement('pre');block.style.whiteSpace='pre-wrap';
+     block.textContent='Evidence: '+brief.evidence.map(e=>e.field+': '+e.value+' ('+e.source+')').join('; ')+'\\nData completeness: '+brief.completenessScore+'/100 (not sales potential)\\n'+brief.caveat+'\\n\\n'+brief.outreachDraft.subject+'\\n'+brief.outreachDraft.body;
+     row.append(block);
+    }catch(e){$('automation-message').textContent=e.message}
+   };
+   row.append(name,detail,approve,briefButton);panel.append(row);
   }
  }catch(e){$('automation-message').textContent=e.message}
 };
