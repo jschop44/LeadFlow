@@ -311,7 +311,7 @@ $('kb-search').onclick=async()=>{
   $('kb-status').textContent=result.results.length+' matching documents. Feedback changes ranking, not verified facts.';
   result.results.forEach(hit=>{
    const wrap=document.createElement('div');wrap.style.cssText='border:1px solid #364663;border-radius:10px;padding:12px;margin:8px 0';
-   const title=document.createElement('strong');title.textContent=hit.title;wrap.append(title);
+   const title=document.createElement('strong');title.textContent=hit.title+(hit.needs_review?' — NEEDS REVIEW':'');wrap.append(title);
    const excerpt=document.createElement('p');excerpt.textContent=String(hit.excerpt||'').replace(/<[^>]*>/g,'');wrap.append(excerpt);
    for(const [label,signal] of [['Useful','useful'],['Incorrect','incorrect']]){
     const button=document.createElement('button');button.type='button';button.className='secondary';button.textContent=label;
