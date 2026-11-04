@@ -16,6 +16,9 @@ test('scheduled engine creates deduplicated review tasks and never sends outreac
  assert.equal(first.automaticOutreach,false);
  assert.ok(first.prospectsDiscovered>=1);
  assert.ok(first.websitesResearched>=1);
+ const dashboard=await intelligenceAction('dashboard');
+ assert.ok(dashboard.prospects.total>=1);
+ assert.ok(dashboard.prospects.researched>=1);
  const prospects=await intelligenceAction('prospects',{status:'pending_review'});
  assert.ok(prospects.prospects.some(x=>x.business_name==='CI Prospect Example'));
  const prospect=prospects.prospects.find(x=>x.business_name==='CI Prospect Example');
