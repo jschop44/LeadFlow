@@ -31,6 +31,7 @@ export async function extractUploadedText(data){
 }
 const enabled=()=>process.env.KNOWLEDGE_BASE_ENABLED==='true';
 let pool,ready=false;
+export async function closeKnowledgePool(){if(pool){await pool.end();pool=null;ready=false}}
 export async function knowledgeAction(action,data={}){
  if(!enabled())throw Error('Knowledge base disabled by feature flag');
  if(!process.env.DATABASE_URL)throw Error('Persistent database not configured');
