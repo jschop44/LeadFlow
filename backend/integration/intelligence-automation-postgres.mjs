@@ -15,6 +15,13 @@ test('scheduled engine creates deduplicated review tasks and never sends outreac
  assert.ok(first.prospectsDiscovered>=1);
  const prospects=await intelligenceAction('prospects',{status:'pending_review'});
  assert.ok(prospects.prospects.some(x=>x.business_name==='CI Prospect Example'));
+ const prospect=prospects.prospects.find(x=>x.business_name==='CI Prospect Example');
+ const brief=await intelligenceAction('prospect-brief',{prospectId:prospect.id});
+ assert.equal(brief.automaticOutreach,false);
+ assert.equal(brief.scoreType,'source-data-completeness-not-sales-potential');
+ assert.match(brief.outreachDraft.body,/CI Prospect Example/);
+ assert.ok(brief.evidence.some(x=>x.source));
+
  const queue=await intelligenceAction('tasks',{status:'pending_review'});
  const item=queue.tasks.find(x=>x.source_id===created.id);
  assert.ok(item,'document should produce reviewable opportunity');
