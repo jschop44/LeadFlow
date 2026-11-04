@@ -1,8 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {knowledgeAction} from '../knowledge-base.js';
+import {knowledgeAction,closeKnowledgePool} from '../knowledge-base.js';
 
-test('full PostgreSQL knowledge lifecycle isolates collections and learns from feedback',async()=>{
+test('full PostgreSQL knowledge lifecycle isolates collections and learns from feedback',async(t)=>{
+ t.after(closeKnowledgePool);
  const suffix=Date.now().toString(36);
  const title='CI business services '+suffix;
  const content='We provide website accessibility, lead capture, conversion testing and responsive design. '+suffix;
