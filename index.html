@@ -243,6 +243,21 @@ async function automationRequest(action,fields={}){
 }
 $('automation-status').onclick=async()=>{try{$('automation-message').textContent=JSON.stringify(await automationRequest('status'),null,2)}catch(e){$('automation-message').textContent=e.message}};
 $('automation-run').onclick=async()=>{try{$('automation-message').textContent=JSON.stringify(await automationRequest('run'),null,2)}catch(e){$('automation-message').textContent=e.message}};
+$('automation-prospects').onclick=async()=>{
+ const panel=$('automation-results');panel.replaceChildren();
+ try{
+  const result=await automationRequest('prospects',{status:'pending_review'});
+  $('automation-message').textContent=result.prospects.length+' prospects awaiting review';
+  for(const item of result.prospects){
+   const row=document.createElement('div');
+   const name=document.createElement('strong');name.textContent=item.business_name;
+   const detail=document.createElement('p');detail.textContent=[item.city,item.niche,item.website,item.source].filter(Boolean).join(' | ');
+   const approve=document.createElement('button');approve.textContent='Approve prospect';approve.type='button';
+   approve.onclick=async()=>{try{await automationRequest('review-prospect',{prospectId:item.id,status:'approved'});row.remove()}catch(e){$('automation-message').textContent=e.message}};
+   row.append(name,detail,approve);panel.append(row);
+  }
+ }catch(e){$('automation-message').textContent=e.message}
+};
 $('automation-queue').onclick=async()=>{
  const out=$('automation-results');out.replaceChildren();
  try{
