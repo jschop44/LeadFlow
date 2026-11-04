@@ -31,6 +31,12 @@ export async function knowledgeAction(action,data={}){
   await pool.query('CREATE INDEX IF NOT EXISTS kb_documents_search_idx ON kb_documents USING gin(to_tsvector(\'english\',content))');
   ready=true;
  }
+ if(action==='list'){
+  const collection=String(data.collection||'');
+  if(!['business','prospects'].includes(collection))throw Error('Collection required');
+  const r=await pool.query('SELECT id,title,created_at FROM kb_documents WHERE collection=$1 AND NOT archived ORDER BY created_at DESC LIMIT 100',[collection]);
+  return {collection,documents:r.rows};
+ }
  if(action==='status'){const r=await pool.query('SELECT collection,count(*)::int AS count FROM kb_documents WHERE NOT archived GROUP BY collection');return {enabled:true,collections:r.rows}}
  if(action==='ingest-file'){
   const content=await extractUploadedText(data);
