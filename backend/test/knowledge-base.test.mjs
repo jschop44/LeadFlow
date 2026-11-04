@@ -1,3 +1,4 @@
+import {readFile} from 'node:fs/promises';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {knowledgeAction,extractUploadedText} from '../knowledge-base.js';
@@ -32,4 +33,15 @@ test('upload rejects unsupported extensions and malformed binary',async()=>{
  await assert.rejects(extractUploadedText({filename:'archive.exe',base64:Buffer.from('hello').toString('base64')}),/Only PDF, DOCX/);
  await assert.rejects(extractUploadedText({filename:'bad.pdf',base64:Buffer.from('hello').toString('base64')}),/Invalid PDF/);
  await assert.rejects(extractUploadedText({filename:'bad.docx',base64:Buffer.from('hello').toString('base64')}),/Invalid DOCX/);
+});
+
+test('real PDF fixture extracts its service text',async()=>{
+ const bytes=await readFile('/tmp/kb-sample.pdf');
+ const extracted=await extractUploadedText({filename:'sample.pdf',base64:bytes.toString('base64')});
+ assert.match(extracted,/Sample PDF service offering/);
+});
+test('real DOCX fixture extracts its service text',async()=>{
+ const bytes=await readFile('/tmp/kb-sample.docx');
+ const extracted=await extractUploadedText({filename:'sample.docx',base64:bytes.toString('base64')});
+ assert.match(extracted,/Sample DOCX service offering/);
 });
