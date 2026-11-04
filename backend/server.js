@@ -115,14 +115,26 @@ const SNAPSHOT_URL=process.env.LEADFLOW_INDEX_URL||'https://raw.githubuserconten
 const businessIndex=new Map();
 let prospectIndexOffset=0;
 configureProspectProvider(()=>{
- const entries=Array.from(businessIndex.entries());
+ // Combine mapped local businesses with independently verified nationwide catalog entries.
+ // Rotate both sources so the bounded intelligence cycle can eventually ingest all of them.
+ const mapped=Array.from(businessIndex.entries()).map(([key,row])=>{
+  const tags=row.element?.tags||{};
+  return {key,name:tags.name||'',website:tags.website||tags['contact:website']||'',city:tags['addr:city']||'',niche:row.niches?.[0]||''};
+ });
+ const nationwide=Array.from(onlineCatalog.values()).filter(row=>row.classification==='Online'||row.classification==='Local + Online').map(row=>{
+  const tags=row.element?.tags||{};
+  return {key:'nationwide:'+row.domain,name:tags.name||'',website:tags.website||'',city:tags['addr:city']||'',niche:row.niches?.[0]||''};
+ });
+ const seen=new Set(),entries=[];
+ for(const item of [...nationwide,...mapped]){
+  const domain=catalogDomain(item.website);
+  const key=domain?'domain:'+domain:item.key;
+  if(!item.name||seen.has(key))continue;
+  seen.add(key);entries.push(item);
+ }
  if(!entries.length)return [];
  const count=Math.min(entries.length,100),batch=[];
- for(let i=0;i<count;i++){
-  const [key,row]=entries[(prospectIndexOffset+i)%entries.length];
-  const tags=row.element?.tags||{};
-  if(tags.name)batch.push({key,name:tags.name,website:tags.website||tags['contact:website']||'',city:tags['addr:city']||'',niche:row.niches?.[0]||''});
- }
+ for(let i=0;i<count;i++)batch.push(entries[(prospectIndexOffset+i)%entries.length]);
  prospectIndexOffset=(prospectIndexOffset+count)%entries.length;
  return batch;
 });
