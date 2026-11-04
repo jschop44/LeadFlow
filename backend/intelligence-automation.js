@@ -11,6 +11,8 @@ const patterns=[
 let running=false,lastRun=null,lastError=null,lastCount=0;
 let prospectProvider=()=>[];
 let researchProvider=async()=>({status:'unavailable',reason:'No research provider configured'});
+let auditProvider=async()=>({status:'unavailable',reason:'Growth Lens audit not configured'});
+export function configureAuditProvider(provider){if(typeof provider!=='function')throw Error('Audit provider must be a function');auditProvider=provider;}
 export function configureResearchProvider(provider){if(typeof provider!=='function')throw Error('Research provider must be a function');researchProvider=provider;}
 export function configureProspectProvider(provider){if(typeof provider!=='function')throw Error('Prospect provider must be a function');prospectProvider=provider;}
 const enabled=()=>process.env.KNOWLEDGE_BASE_ENABLED==='true'&&process.env.INTELLIGENCE_AUTOMATION_ENABLED==='true';
@@ -34,6 +36,9 @@ export async function runIntelligenceCycle(){
   await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS research_status text NOT NULL DEFAULT 'pending'`);
   await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS research_summary text`);
   await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS researched_at timestamptz`);
+  await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS audit_status text NOT NULL DEFAULT 'pending'`);
+  await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS audit_finding text`);
+  await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS audited_at timestamptz`);
   let discovered=0;
   const candidates=await Promise.resolve(prospectProvider());
   for(const candidate of (Array.isArray(candidates)?candidates:[]).slice(0,100)){
@@ -59,6 +64,23 @@ export async function runIntelligenceCycle(){
    await pool.query('UPDATE kb_prospect_candidates SET research_status=$2,research_summary=$3,researched_at=now() WHERE id=$1',[candidate.id,status,summary]);
    if(status==='verified')researched++;else failedResearch++;
   }
+  // One Growth Lens audit per cycle, limited to sites with verified accessible metadata.
+  let audited=0;
+  if(process.env.INTELLIGENCE_AUTO_AUDIT_ENABLED==='true'){
+   const auditBatch=await pool.query(`SELECT id,website FROM kb_prospect_candidates
+    WHERE research_status='verified' AND website IS NOT NULL AND website<>''
+      AND (audited_at IS NULL OR audited_at<now()-interval '30 days')
+    ORDER BY audited_at ASC NULLS FIRST,discovered_at ASC LIMIT 1`);
+   for(const candidate of auditBatch.rows){
+    let outcome;
+    try{outcome=await auditProvider(candidate.website)}
+    catch(e){outcome={status:'unavailable',reason:String(e.message||e).slice(0,120)}}
+    const verified=outcome?.status==='verified'&&typeof outcome.finding==='string';
+    await pool.query('UPDATE kb_prospect_candidates SET audit_status=$2,audit_finding=$3,audited_at=now() WHERE id=$1',
+      [candidate.id,verified?'verified':'unavailable',String(verified?outcome.finding:outcome?.reason||'No verified finding').slice(0,450)]);
+    if(verified)audited++;
+   }
+  }
   const documents=await pool.query(`SELECT d.id,d.title,d.content,d.collection
     FROM kb_documents d WHERE NOT d.archived AND d.collection='business'
     ORDER BY d.created_at DESC LIMIT 200`);
@@ -74,7 +96,7 @@ export async function runIntelligenceCycle(){
    }
   }
   lastRun=new Date().toISOString();lastError=null;lastCount=created+discovered;
-  return {enabled:true,created,prospectsDiscovered:discovered,websitesResearched:researched,websiteResearchUnavailable:failedResearch,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
+  return {enabled:true,created,prospectsDiscovered:discovered,websitesResearched:researched,websiteResearchUnavailable:failedResearch,growthLensAudits:audited,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
  }catch(e){lastError=String(e.message||e).slice(0,180);return {enabled:true,error:lastError,lastRun}}
  finally{running=false;if(pool)await pool.end().catch(()=>{})}
 }
@@ -90,6 +112,7 @@ export async function intelligenceAction(action,data={}){
     count(*) FILTER(WHERE status='pending_review')::int AS pending,
     count(*) FILTER(WHERE status='approved')::int AS approved,
     count(*) FILTER(WHERE research_status='verified')::int AS researched,
+    count(*) FILTER(WHERE audit_status='verified')::int AS audited,
     count(*) FILTER(WHERE research_status='unavailable')::int AS unavailable,
     count(*) FILTER(WHERE website IS NOT NULL AND website<>'')::int AS with_website
     FROM kb_prospect_candidates`);
@@ -99,13 +122,13 @@ export async function intelligenceAction(action,data={}){
   if(action==='prospects'){
    const status=String(data.status||'pending_review');
    if(!['pending_review','approved','dismissed'].includes(status))throw Error('Invalid prospect status');
-   const r=await pool.query('SELECT id,business_name,website,city,niche,source,status,discovered_at,research_status,research_summary,researched_at FROM kb_prospect_candidates WHERE status=$1 ORDER BY discovered_at DESC LIMIT 100',[status]);
+   const r=await pool.query('SELECT id,business_name,website,city,niche,source,status,discovered_at,research_status,research_summary,researched_at,audit_status,audit_finding,audited_at FROM kb_prospect_candidates WHERE status=$1 ORDER BY discovered_at DESC LIMIT 100',[status]);
    return {prospects:r.rows,source:'indexed OpenStreetMap snapshot',requiresHumanReview:true};
   }
   if(action==='prospect-brief'){
    const id=String(data.prospectId||'');
    if(!/^[0-9a-f-]{36}$/i.test(id))throw Error('Invalid prospect id');
-   const result=await pool.query('SELECT id,business_name,website,city,niche,source,status,research_status,research_summary,researched_at FROM kb_prospect_candidates WHERE id=$1',[id]);
+   const result=await pool.query('SELECT id,business_name,website,city,niche,source,status,research_status,research_summary,researched_at,audit_status,audit_finding,audited_at FROM kb_prospect_candidates WHERE id=$1',[id]);
    if(!result.rowCount)throw Error('Prospect not found');
    const p=result.rows[0];
    const verifiedWebsite=/^https:\/\//i.test(p.website||'');
@@ -114,6 +137,7 @@ export async function intelligenceAction(action,data={}){
    if(p.niche)evidence.push({field:'niche',value:p.niche,source:p.source});
    if(verifiedWebsite)evidence.push({field:'website',value:p.website,source:p.source});
    if(p.research_status==='verified'&&p.research_summary)evidence.push({field:'website_research',value:p.research_summary,source:p.website});
+   if(p.audit_status==='verified'&&p.audit_finding)evidence.push({field:'growth_lens_audit',value:p.audit_finding,source:'Growth Lens audit of '+p.website});
    const completeness=Math.min(100,35+(p.city?15:0)+(p.niche?15:0)+(verifiedWebsite?35:0));
    return {prospectId:p.id,business:p.business_name,source:p.source,
     evidence,completenessScore:completeness,scoreType:'source-data-completeness-not-sales-potential',
