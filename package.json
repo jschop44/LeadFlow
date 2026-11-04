@@ -8,6 +8,8 @@
     "test:lead-library": "node tests/lead-library.integration.mjs"
   },
   "dependencies": {
-    "pg": "^8.16.3"
+    "pg": "^8.16.3",
+    "pdf-parse": "^1.1.1",
+    "mammoth": "^1.9.1"
   }
 }
