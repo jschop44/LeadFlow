@@ -43,7 +43,7 @@
 <details style="margin:12px 0"><summary>Messaging channels and account connections</summary>
 <div class="actions" style="margin:14px 0;flex-wrap:wrap">
 <button id="connect-gmail" class="secondary">Connect Gmail</button>
-<button id="connect-microsoft" class="secondary">Connect Microsoft 365</button>
+
 <button id="disconnect-email" class="secondary" disabled>Disconnect</button>
 </div>
 <label for="social-destination">Verified social profile</label>
@@ -55,7 +55,12 @@
 <button id="send-connected" class="secondary">Send email</button>
 <button id="compose-social" class="secondary" disabled>Open message composer</button>
 <button id="open-social" class="secondary" onclick="window.leadflowOpenSocial && window.leadflowOpenSocial()">Open social profile</button>
-</div><details id="outreach-settings" style="margin:18px 0"><summary>One-time sender and service setup</summary><p class="muted">Save your offering and sender details once on this device. They are reused for each lead.</p><div class="filters"><div><label for="out-service">Service you offer</label><input id="out-service" placeholder="e.g. Website conversion optimization"></div><div><label for="out-sender">Your business name and postal address</label><input id="out-sender" placeholder="Business name and address"></div><div><label for="out-optout">Opt-out instructions</label><input id="out-optout" placeholder="Reply unsubscribe"></div></div><div class="actions"><button id="save-outreach-settings" class="secondary">Save settings on this device</button></div></details><div style="margin:14px 0"><label for="manual-recipient">Recipient email address (editable fallback)</label><input id="manual-recipient" type="email" autocomplete="off" inputmode="email" placeholder="Enter a business contact email, if known" style="max-width:560px"><p id="recipient-source" class="muted" style="font-size:13px;margin:6px 0">No recipient selected. You can enter a known business email address manually.</p></div><div id="outreach-note" class="muted" style="margin:12px 0">Select a business above to begin.</div><label for="draft-output">Personalized draft — review before sending</label><textarea id="draft-output" rows="12" style="width:100%;background:#0d1527;color:#edf2ff;border:1px solid #364663;border-radius:10px;padding:16px" placeholder="Select a lead and click Generate email draft."></textarea></section><section class="stats"><div class="stat"><span class="muted">Discovered leads</span><strong id="count">0</strong></div><div class="stat"><span class="muted">With websites</span><strong id="sites">0</strong></div><div class="stat"><span class="muted">Saved leads</span><strong id="saved">0</strong></div></section>
+</div><details id="outreach-settings" style="margin:18px 0"><summary>One-time sender and service setup</summary><p class="muted">Save your offering and sender details once on this device. They are reused for each lead.</p><div class="filters"><div><label for="out-service">Service you offer</label><input id="out-service" placeholder="e.g. Website conversion optimization"></div><div><label for="out-sender">Your business name and postal address</label><input id="out-sender" placeholder="Business name and address"></div><div><label for="out-optout">Opt-out instructions</label><input id="out-optout" placeholder="Reply unsubscribe"></div></div><div class="actions"><button id="save-outreach-settings" class="secondary">Save settings on this device</button></div></details><div style="margin:14px 0"><label for="manual-recipient">Recipient email address (editable fallback)</label><input id="manual-recipient" type="email" autocomplete="off" inputmode="email" placeholder="Enter a business contact email, if known" style="max-width:560px"><p id="recipient-source" class="muted" style="font-size:13px;margin:6px 0">No recipient selected. You can enter a known business email address manually.</p></div><div id="outreach-note" class="muted" style="margin:12px 0">Select a business above to begin.</div><details id="email-template-panel" style="margin:14px 0"><summary>Email templates — create, save, load, import or export</summary>
+<p class="muted" style="margin:10px 0">Templates are saved on this device. Use placeholders: {{business}}, {{contact}}, {{service}}, {{sender}}, {{unsubscribe}}. Loading a template fills the editable draft; no email is sent.</p>
+<label for="template-select">Saved templates</label><select id="template-select" style="max-width:560px"><option value="">Choose a template...</option></select>
+<label for="template-name">Template name</label><input id="template-name" maxlength="100" placeholder="e.g. Initial website outreach" style="max-width:560px">
+<div class="actions" style="margin:10px 0;flex-wrap:wrap"><button type="button" id="template-load" class="secondary">Load template</button><button type="button" id="template-save" class="secondary">Save current draft as template</button><button type="button" id="template-delete" class="secondary">Delete template</button><button type="button" id="template-export" class="secondary">Export templates</button><label for="template-import" class="secondary" style="display:inline-block;padding:10px;cursor:pointer">Import templates (.json)</label><input id="template-import" type="file" accept=".json,application/json" style="max-width:300px"></div>
+<p id="template-status" class="muted" role="status" aria-live="polite"></p></details><label for="draft-output">Personalized draft — review before sending</label><textarea id="draft-output" rows="12" style="width:100%;background:#0d1527;color:#edf2ff;border:1px solid #364663;border-radius:10px;padding:16px" placeholder="Select a lead and click Generate email draft."></textarea></section><section class="stats"><div class="stat"><span class="muted">Discovered leads</span><strong id="count">0</strong></div><div class="stat"><span class="muted">With websites</span><strong id="sites">0</strong></div><div class="stat"><span class="muted">Saved leads</span><strong id="saved">0</strong></div></section>
 <section class="panel"><div class="hero"><h2>Business leads</h2><div><label for="filter">Filter results</label><input id="filter" placeholder="Search name or city"></div></div><div class="actions"><button class="secondary" id="previous-page">Previous 20</button><span class="pill" id="page-label">Page 1</span><button class="secondary" id="next-page">Next 20</button><label for="library-filter" style="margin:0">Lead library</label><select id="library-filter" style="width:auto;min-width:165px"><option value="all">All archived</option><option value="new">New</option><option value="seen">Previously found</option><option value="saved">Saved</option></select><button class="secondary" id="show-history">Open library <span id="history-count">0</span></button><span id="library-sync" class="muted" style="font-size:12px">Local archive</span><details style="display:inline-block"><summary style="cursor:pointer">More</summary><button class="secondary" id="reset-seen">Reset seen history</button><button class="secondary" id="clear-history">Clear lead archive</button></details></div><div class="table-wrap"><table><thead><tr><th>Business</th><th>Location</th><th>Website</th><th>Phone</th><th>Owner / contact</th><th>Social profiles</th><th>Lead score</th><th>Save</th></tr></thead><tbody id="results"><tr><td colspan="8" class="empty">Search to discover real business listings.</td></tr></tbody></table></div></section>
 <section class="panel foot"><strong>Data transparency</strong><p>Live results and published contact fields come from OpenStreetMap contributors via Nominatim and Overpass. Research links open external search results for manual owner/contact verification; the app does not automatically crawl those sites or bypass social-platform restrictions. Coverage and contact fields vary by region. A lead score reflects listing completeness, not verified purchase intent. Email addresses are not fabricated, and the app does not send unsolicited emails. Respect source usage limits and applicable outreach rules. Data © OpenStreetMap contributors, ODbL.</p></section></main>
 <script>
@@ -98,6 +103,56 @@ function updateRecipient(lead){
 $('manual-recipient').addEventListener('input',()=>{
  $('recipient-source').textContent='Manually edited recipient — not independently verified. Confirm the address belongs to the intended business contact before sending.';
 });
+const TEMPLATE_KEY='leadflow-email-templates-v1';
+let emailTemplates=[];
+try{const value=JSON.parse(localStorage.getItem(TEMPLATE_KEY)||'[]');if(Array.isArray(value))emailTemplates=value.filter(x=>x&&typeof x.name==='string'&&typeof x.content==='string').slice(0,100)}catch{}
+function persistTemplates(){localStorage.setItem(TEMPLATE_KEY,JSON.stringify(emailTemplates))}
+function renderTemplates(){
+ const select=$('template-select'),old=select.value;select.replaceChildren(new Option('Choose a template...',''));
+ emailTemplates.forEach(t=>select.add(new Option(t.name,t.name)));
+ if(emailTemplates.some(t=>t.name===old))select.value=old;
+}
+function applyTemplate(content){
+ const lead=selectedDraftLead||{};
+ const vars={business:String(lead.name||'the business'),contact:String(lead.contact||'there'),service:$('out-service').value.trim()||'website improvements and digital growth',sender:$('out-sender').value.trim()||'[Your name and business contact information]',unsubscribe:$('out-optout').value.trim()||'Reply unsubscribe'};
+ return content.replace(/{{(business|contact|service|sender|unsubscribe)}}/g,(_,key)=>vars[key]);
+}
+$('template-save').onclick=()=>{
+ const name=$('template-name').value.trim(),content=$('draft-output').value;
+ if(!name||!content.trim()){$('template-status').textContent='Enter a template name and write a draft first.';return}
+ if(emailTemplates.some(t=>t.name===name)&&!confirm('Replace the existing template named '+name+'?'))return;
+ emailTemplates=[...emailTemplates.filter(t=>t.name!==name),{name,content}].slice(-100);
+ try{persistTemplates();renderTemplates();$('template-select').value=name;$('template-status').textContent='Template saved on this device.'}catch(e){$('template-status').textContent='Could not save template: '+e.message}
+};
+$('template-load').onclick=()=>{
+ const t=emailTemplates.find(x=>x.name===$('template-select').value);
+ if(!t){$('template-status').textContent='Choose a saved template first.';return}
+ $('draft-output').value=applyTemplate(t.content);lastDraftMode='email';lastDraft=$('draft-output').value;
+ $('template-status').textContent='Template loaded into editable draft. Review before sending.';
+};
+$('template-delete').onclick=()=>{
+ const name=$('template-select').value;if(!name||!confirm('Delete template '+name+'?'))return;
+ emailTemplates=emailTemplates.filter(t=>t.name!==name);persistTemplates();renderTemplates();$('template-status').textContent='Template deleted.';
+};
+$('template-export').onclick=()=>{
+ const blob=new Blob([JSON.stringify(emailTemplates,null,2)],{type:'application/json'});
+ const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='leadflow-email-templates.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);
+ $('template-status').textContent='Templates exported.';
+};
+$('template-import').onchange=async e=>{
+ const file=e.target.files?.[0];if(!file)return;
+ try{
+  if(file.size>250000)throw Error('File too large (250 KB maximum)');
+  const data=JSON.parse(await file.text());
+  if(!Array.isArray(data)||data.length>100||data.some(t=>!t||typeof t.name!=='string'||!t.name.trim()||t.name.length>100||typeof t.content!=='string'||t.content.length>15000))throw Error('Expected an array of templates with name and content');
+  const map=new Map(emailTemplates.map(t=>[t.name,t]));
+  data.forEach(t=>map.set(t.name,{name:t.name,content:t.content}));
+  emailTemplates=[...map.values()].slice(-100);persistTemplates();renderTemplates();
+  $('template-status').textContent=data.length+' templates imported. Review imported content before sending.';
+ }catch(err){$('template-status').textContent='Import failed: '+err.message}
+ e.target.value='';
+};
+renderTemplates();
 const SETTINGS_KEY='leadflow-outreach-settings-v1';
 try{const p=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}');$('out-service').value=p.service||'';$('out-sender').value=p.sender||'';$('out-optout').value=p.unsubscribe||'Reply unsubscribe'}catch{}
 
@@ -180,7 +235,7 @@ async function startEmailConnection(provider){
  window.location.assign(emailApi+'/oauth/start?provider='+provider);
 }
 $('connect-gmail').onclick=()=>startEmailConnection('google');
-$('connect-microsoft').onclick=()=>startEmailConnection('microsoft');
+
 $('disconnect-email').onclick=async()=>{if(emailSession)await fetch(emailApi+'/oauth/disconnect',{method:'POST',headers:{authorization:'Bearer '+emailSession}}).catch(()=>{});emailSession='';emailProvider='';emailConnectionUI()};
 (async()=>{const errorMatch=location.hash.match(/^#oauth-error=(.+)$/);if(errorMatch){history.replaceState(null,'',location.pathname+location.search);let message='Email connection unavailable';try{message=decodeURIComponent(errorMatch[1])}catch{}$('outreach-note').textContent=message.includes('credentials are not configured')?'Email connection setup required: '+message+'. Register the provider OAuth app and configure its client ID and secret in the backend.':'Email connection failed: '+message;$('outreach-note').scrollIntoView({behavior:'smooth',block:'center'});return}const match=location.hash.match(/^#oauth-ticket=(.+)$/);if(!match)return;
 const ticket=decodeURIComponent(match[1]);
@@ -204,7 +259,7 @@ try{
  $('outreach-note').scrollIntoView({behavior:'smooth',block:'center'});
 }})();
 $('send-connected').onclick=async()=>{
- if(!emailSession){$('outreach-note').textContent='Connect Gmail or Microsoft 365 first. If provider authorization is not configured, use Open email app to compose manually; LeadFlow cannot send without authorized account access.';return}if(!selectedDraftLead||lastDraftMode!=='email'){$('outreach-note').textContent='Select a lead and generate an email draft first.';return}
+ if(!emailSession){$('outreach-note').textContent='Connect Gmail first. If provider authorization is not configured, use Open email app to compose manually; LeadFlow cannot send without authorized account access.';return}if(!selectedDraftLead||lastDraftMode!=='email'){$('outreach-note').textContent='Select a lead and generate an email draft first.';return}
  const to=recipientEmail();
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){$('outreach-note').textContent='Enter a valid recipient email in the editable field above, then try again.';return}
  const lines=$('draft-output').value.trim().split('\n');const subject=lines[0].startsWith('SUBJECT: ')?lines.shift().slice(9):'Business introduction',body=lines.join('\n').trim();
