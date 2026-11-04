@@ -253,15 +253,19 @@ const discoveryTerms={
  'Wedding planners':'wedding planning company','Relationship coaches':'relationship coaching company'
 ,
  'Red light therapy devices':'red light therapy company','Sauna blankets':'infrared sauna blanket company','Skin-care devices':'skin care devices company'};
+const nationwideSearchOffsets=new Map();
 async function discoverNationwideCandidates(){
  if(Date.now()<discoveryBackoffUntil)return;
  const niches=Object.keys(discoveryTerms),niche=niches[discoveryNicheIndex++%niches.length];
  try{
   // Wikimedia's indexed search is intended for keyword discovery; SPARQL is not.
-  const params=new URLSearchParams({action:'query',generator:'search',gsrsearch:discoveryTerms[niche]+' haswbstatement:P17=Q30 haswbstatement:P856',gsrnamespace:'0',gsrlimit:'50',prop:'info',format:'json',origin:'*'});
+  // Rotate result pages per niche to avoid rechecking the same first 50 businesses forever.
+  const offset=nationwideSearchOffsets.get(niche)||0;
+  const params=new URLSearchParams({action:'query',generator:'search',gsrsearch:discoveryTerms[niche]+' haswbstatement:P17=Q30 haswbstatement:P856',gsrnamespace:'0',gsrlimit:'50',gsroffset:String(offset),prop:'info',format:'json',origin:'*'});
   const search=await fetchJSON('https://www.wikidata.org/w/api.php?'+params,{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlowResearch/1.0 (business discovery)'}});
   const ids=Object.values(search?.query?.pages||{}).map(page=>page.title).filter(title=>/^Q[0-9]+$/.test(title)).slice(0,50);
-  if(!ids.length){console.log('Nationwide discovery: no candidates',niche);return}
+  if(!ids.length){nationwideSearchOffsets.set(niche,0);console.log('Nationwide discovery: exhausted search page',JSON.stringify({niche,offset}));return}
+  nationwideSearchOffsets.set(niche,offset>=450?0:offset+50);
   const entities=await fetchJSON('https://www.wikidata.org/w/api.php?'+new URLSearchParams({action:'wbgetentities',ids:ids.join('|'),props:'claims|labels|descriptions',languages:'en',format:'json'}),{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlowResearch/1.0 (business discovery)'}});
   let verified=0;
   const rejected={nonUS:0,missingWebsiteOrName:0,alreadyIndexed:0,notVerifiedOnline:0};
@@ -281,7 +285,7 @@ async function discoverNationwideCandidates(){
    const row={domain,niches:[niche],checkedAt:Date.now(),classification:'Online',platform:info.platform,evidence:info.classificationEvidence,usEvidence:evidence,element};
    await catalogStore.save(row);verified++;
   }
-  console.log('Nationwide discovery',JSON.stringify({niche,candidates:ids.length,verified,rejected}));
+  console.log('Nationwide discovery',JSON.stringify({niche,searchOffset:offset,candidates:ids.length,verified,rejected}));
  }catch(e){if(String(e.message).includes('429'))discoveryBackoffUntil=Date.now()+3600000;console.warn('Nationwide discovery skipped:',niche,e.message)}
 }
 function refreshQueueStatus(){const now=Date.now(),pending=new Map();for(const row of businessIndex.values()){const tags=row.element?.tags||{},website=tags.website||tags['contact:website'],domain=catalogDomain(website);if(!domain||pending.has(domain))continue;const checkedAt=Number(onlineCatalog.get(domain)?.checkedAt)||0;const ageDays=checkedAt?Math.max(0,Math.floor((now-checkedAt)/86400000)):null;if(ageDays===null||ageDays>=7)pending.set(domain,{domain,ageDays,priority:ageDays===null||ageDays>30?'high':'medium'});}const queue=[...pending.values()].sort((a,b)=>(a.ageDays===null?-1:b.ageDays===null?1:b.ageDays-a.ageDays)||a.domain.localeCompare(b.domain));return {pending:queue.length,highPriority:queue.filter(x=>x.priority==='high').length,mediumPriority:queue.filter(x=>x.priority==='medium').length,scheduledBatchSize:12,refreshIntervalMinutes:15,active:catalogRefreshActive,next:queue.slice(0,12)};}
