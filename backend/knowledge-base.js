@@ -1,5 +1,5 @@
 import {randomUUID,createHash} from 'node:crypto';
-async function extractUploadedText(data){
+export async function extractUploadedText(data){
  const filename=String(data.filename||'').slice(0,180);
  const raw=String(data.base64||'');
  if(!/^[A-Za-z0-9+/]*={0,2}$/.test(raw)||raw.length>1900000||!raw)throw Error('Invalid or oversized upload');
