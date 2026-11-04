@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {knowledgeAction} from '../knowledge-base.js';
+import {knowledgeAction,extractUploadedText} from '../knowledge-base.js';
 test('knowledge module is disabled by default and does not access database',async()=>{
  const previous=process.env.KNOWLEDGE_BASE_ENABLED;
  delete process.env.KNOWLEDGE_BASE_ENABLED;
@@ -22,4 +22,14 @@ test('outcome tracking cannot bypass the disabled feature flag',async()=>{
  const old=process.env.KNOWLEDGE_BASE_ENABLED;delete process.env.KNOWLEDGE_BASE_ENABLED;
  try{await assert.rejects(knowledgeAction('record-outcome',{documentId:'00000000-0000-0000-0000-000000000000',stage:'won'}),/disabled by feature flag/)}
  finally{if(old!==undefined)process.env.KNOWLEDGE_BASE_ENABLED=old}
+});
+test('plain-text upload extraction retains source text',async()=>{
+ const content='This is a sample service description for document ingestion.';
+ const extracted=await extractUploadedText({filename:'service.txt',base64:Buffer.from(content).toString('base64')});
+ assert.equal(extracted,content);
+});
+test('upload rejects unsupported extensions and malformed binary',async()=>{
+ await assert.rejects(extractUploadedText({filename:'archive.exe',base64:Buffer.from('hello').toString('base64')}),/Only PDF, DOCX/);
+ await assert.rejects(extractUploadedText({filename:'bad.pdf',base64:Buffer.from('hello').toString('base64')}),/Invalid PDF/);
+ await assert.rejects(extractUploadedText({filename:'bad.docx',base64:Buffer.from('hello').toString('base64')}),/Invalid DOCX/);
 });
