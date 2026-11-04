@@ -276,7 +276,10 @@ $('kb-list').onclick=async()=>{
    const label=document.createElement('span');label.textContent=doc.title+' — '+doc.id+' ';
    const archive=document.createElement('button');archive.type='button';archive.className='secondary';archive.textContent='Archive';
    archive.onclick=async()=>{if(!window.confirm('Archive this document? It will no longer appear in searches.'))return;try{await knowledgeRequest('archive',{documentId:doc.id});row.remove();$('kb-status').textContent='Archived '+doc.title}catch(e){$('kb-status').textContent=e.message}};
-   row.append(label,archive);$('kb-results').append(row);
+   const stage=document.createElement('select');for(const value of ['contacted','replied','qualified','won','lost']){const option=document.createElement('option');option.value=value;option.textContent=value;stage.append(option)}
+   const record=document.createElement('button');record.type='button';record.className='secondary';record.textContent='Record outcome';
+   record.onclick=async()=>{if(!window.confirm('Record '+stage.value+' as a verified outcome associated with this document?'))return;try{await knowledgeRequest('record-outcome',{documentId:doc.id,stage:stage.value});$('kb-status').textContent='Outcome recorded: '+stage.value}catch(e){$('kb-status').textContent=e.message}};
+   row.append(label,archive,stage,record);$('kb-results').append(row);
   }
  }catch(e){$('kb-status').textContent=e.message}
 };
