@@ -12,9 +12,11 @@ jobs:
     env:
       LEADFLOW_AUTOMATION_TOKEN: ${{ secrets.LEADFLOW_AUTOMATION_TOKEN }}
     steps:
-      - name: Skip until owner configures private automation token
+      - name: Require private automation token
         if: env.LEADFLOW_AUTOMATION_TOKEN == ''
-        run: echo 'Manual setup pending: set LEADFLOW_AUTOMATION_TOKEN to the Render API_TOKEN secret.'
+        run: |
+          echo '::error::Manual setup required: add LEADFLOW_AUTOMATION_TOKEN as a GitHub Actions repository secret.'
+          exit 1
       - name: Trigger bounded intelligence cycle
         if: env.LEADFLOW_AUTOMATION_TOKEN != ''
         shell: bash
