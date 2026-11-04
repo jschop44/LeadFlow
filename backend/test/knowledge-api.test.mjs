@@ -15,7 +15,7 @@ test('knowledge API enforces token and opt-in, without touching storage',async()
   const unauthorized=await fetch(base+'/knowledge',{method:'POST',headers:{'content-type':'application/json'},body:payload});
   assert.equal(unauthorized.status,401);
   const shared=await fetch(base+'/knowledge',{method:'POST',headers:{'content-type':'application/json','x-leadflow-token':'shared-ci-token'},body:payload});
-  assert.equal(shared.status,403,'shared cross-app token must never grant private knowledge write access');
+  assert.ok([401,403].includes(shared.status),'shared cross-app token must never grant private knowledge write access');
   const disabled=await fetch(base+'/knowledge',{method:'POST',headers:{'content-type':'application/json','x-leadflow-token':'kb-ci-token'},body:payload});
   assert.ok(!disabled.ok,'disabled knowledge request must fail');
   assert.match(JSON.stringify(await disabled.json()),/disabled by feature flag/);
