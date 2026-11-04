@@ -63,7 +63,7 @@
 <label for="kb-content">Document text</label><textarea id="kb-content" rows="5" placeholder="Paste information or choose a text file..."></textarea>
 <div class="actions" style="margin:10px 0"><button id="kb-ingest" type="button">Save to knowledge base</button></div>
 <label for="kb-query">Search knowledge</label><input id="kb-query" placeholder="e.g. website conversion pricing">
-<div class="actions" style="margin:10px 0"><button id="kb-search" type="button" class="secondary">Search collection</button></div><div class="actions" style="margin:10px 0"><button id="kb-summary" type="button" class="secondary">View learning statistics</button><button id="kb-context" type="button" class="secondary">Find sourced evidence</button><button id="kb-offer" type="button" class="secondary">Preview sourced offer</button><button id="kb-list" type="button" class="secondary">Manage documents</button></div>
+<div class="actions" style="margin:10px 0"><button id="kb-search" type="button" class="secondary">Search collection</button></div><div class="actions" style="margin:10px 0"><button id="kb-summary" type="button" class="secondary">View learning statistics</button><button id="kb-context" type="button" class="secondary">Find sourced evidence</button><button id="kb-offer" type="button" class="secondary">Preview sourced offer</button><button id="kb-list" type="button" class="secondary">Manage documents</button><button id="kb-outcomes" type="button" class="secondary">View outcome learning</button></div>
 <p id="kb-status" role="status" class="muted"></p><div id="kb-results" style="white-space:pre-wrap"></div>
 </details><details id="email-template-panel" style="margin:14px 0"><summary>Email templates — create, save, load, import or export</summary>
 <p class="muted" style="margin:10px 0">Templates are saved on this device. Use placeholders: {{business}}, {{contact}}, {{service}}, {{sender}}, {{unsubscribe}}. Loading a template fills the editable draft; no email is sent.</p>
@@ -257,6 +257,13 @@ $('kb-context').onclick=async()=>{
    p.textContent='['+item.collection+'] '+item.title+' ('+item.id+'): '+item.excerpt;
    $('kb-results').append(p);
   }
+ }catch(e){$('kb-status').textContent=e.message}
+};
+$('kb-outcomes').onclick=async()=>{
+ try{
+  const result=await knowledgeRequest('outcome-summary');
+  $('kb-status').textContent='Observed outreach outcomes; not causal ROI estimates.';
+  $('kb-results').textContent=JSON.stringify(result.outcomes,null,2);
  }catch(e){$('kb-status').textContent=e.message}
 };
 $('kb-list').onclick=async()=>{
