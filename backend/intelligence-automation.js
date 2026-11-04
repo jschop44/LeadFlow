@@ -9,6 +9,8 @@ const patterns=[
  {key:'search',re:/search engine|seo|organic traffic|structured data|local listing/i,action:'Review discoverability improvements',query:'search visibility'}
 ];
 let running=false,lastRun=null,lastError=null,lastCount=0;
+let prospectProvider=()=>[];
+export function configureProspectProvider(provider){if(typeof provider!=='function')throw Error('Prospect provider must be a function');prospectProvider=provider;}
 const enabled=()=>process.env.KNOWLEDGE_BASE_ENABLED==='true'&&process.env.INTELLIGENCE_AUTOMATION_ENABLED==='true';
 const db=async()=>{const {default:pg}=await import('pg');const u=new URL(process.env.DATABASE_URL);return new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:['localhost','127.0.0.1'].includes(u.hostname)?false:{rejectUnauthorized:true},max:1,connectionTimeoutMillis:4000})};
 export async function runIntelligenceCycle(){
@@ -22,6 +24,22 @@ export async function runIntelligenceCycle(){
    category text NOT NULL,title text NOT NULL,reason text NOT NULL,
    status text NOT NULL DEFAULT 'pending_review' CHECK(status IN ('pending_review','approved','dismissed')),
    created_at timestamptz NOT NULL DEFAULT now(),UNIQUE(document_id,category))`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS kb_prospect_candidates(
+   id uuid PRIMARY KEY,source_key text NOT NULL UNIQUE,business_name text NOT NULL,
+   website text,city text,niche text,source text NOT NULL,
+   status text NOT NULL DEFAULT 'pending_review' CHECK(status IN ('pending_review','approved','dismissed')),
+   discovered_at timestamptz NOT NULL DEFAULT now())`);
+  let discovered=0;
+  const candidates=await Promise.resolve(prospectProvider());
+  for(const candidate of (Array.isArray(candidates)?candidates:[]).slice(0,100)){
+   const name=String(candidate.name||'').trim().slice(0,180);
+   const key=String(candidate.key||'').trim().slice(0,300);
+   if(!name||!key)continue;
+   const result=await pool.query(`INSERT INTO kb_prospect_candidates(id,source_key,business_name,website,city,niche,source)
+     VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(source_key) DO NOTHING RETURNING id`,
+     [randomUUID(),key,name,String(candidate.website||'').slice(0,300)||null,String(candidate.city||'').slice(0,120)||null,String(candidate.niche||'').slice(0,120)||null,'OpenStreetMap indexed snapshot']);
+   discovered+=result.rowCount;
+  }
   const documents=await pool.query(`SELECT d.id,d.title,d.content,d.collection
     FROM kb_documents d WHERE NOT d.archived AND d.collection='business'
     ORDER BY d.created_at DESC LIMIT 200`);
@@ -36,8 +54,8 @@ export async function runIntelligenceCycle(){
     created+=r.rowCount;
    }
   }
-  lastRun=new Date().toISOString();lastError=null;lastCount=created;
-  return {enabled:true,created,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
+  lastRun=new Date().toISOString();lastError=null;lastCount=created+discovered;
+  return {enabled:true,created,prospectsDiscovered:discovered,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
  }catch(e){lastError=String(e.message||e).slice(0,180);return {enabled:true,error:lastError,lastRun}}
  finally{running=false;if(pool)await pool.end().catch(()=>{})}
 }
@@ -47,6 +65,18 @@ export async function intelligenceAction(action,data={}){
  if(action==='status')return {enabled:true,running,lastRun,lastError,lastCount,intervalMinutes:Math.round(INTERVAL_MS/60000),automaticOutreach:false};
  const pool=await db();
  try{
+  if(action==='prospects'){
+   const status=String(data.status||'pending_review');
+   if(!['pending_review','approved','dismissed'].includes(status))throw Error('Invalid prospect status');
+   const r=await pool.query('SELECT id,business_name,website,city,niche,source,status,discovered_at FROM kb_prospect_candidates WHERE status=$1 ORDER BY discovered_at DESC LIMIT 100',[status]);
+   return {prospects:r.rows,source:'indexed OpenStreetMap snapshot',requiresHumanReview:true};
+  }
+  if(action==='review-prospect'){
+   const id=String(data.prospectId||''),status=String(data.status||'');
+   if(!/^[0-9a-f-]{36}$/i.test(id)||!['approved','dismissed'].includes(status))throw Error('Invalid prospect review');
+   const r=await pool.query("UPDATE kb_prospect_candidates SET status=$2 WHERE id=$1 AND status='pending_review' RETURNING id",[id,status]);
+   return {updated:r.rowCount===1,status,automaticOutreach:false};
+  }
   if(action==='tasks'){
    const status=String(data.status||'pending_review');
    if(!['pending_review','approved','dismissed'].includes(status))throw Error('Invalid task status');
