@@ -189,6 +189,8 @@ export async function intelligenceAction(action,data={}){
 export function startIntelligenceScheduler(){
  if(!enabled())return;
  const interval=Math.max(60000,Math.min(86400000,INTERVAL_MS||900000));
+ // In-process scheduling is a fallback. GitHub Actions also wakes free Render instances.
+ // The database advisory lock ensures both triggers cannot process concurrently.
  setTimeout(()=>{void runIntelligenceCycle()},12000).unref();
  setInterval(()=>{void runIntelligenceCycle()},interval).unref();
 }
