@@ -103,8 +103,9 @@ export async function runIntelligenceCycle(){
    }
   }
   lastRun=new Date().toISOString();lastError=null;lastCount=created+discovered;
+  console.info('Intelligence cycle completed',JSON.stringify({lastRun,created,prospectsDiscovered:discovered,websitesResearched:researched,growthLensAudits:audited,documentsScanned:documents.rows.length}));
   return {enabled:true,created,prospectsDiscovered:discovered,websitesResearched:researched,websiteResearchUnavailable:failedResearch,growthLensAudits:audited,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
- }catch(e){lastError=String(e.message||e).slice(0,180);return {enabled:true,error:lastError,lastRun}}
+ }catch(e){lastError=String(e.message||e).slice(0,180);console.error('Intelligence cycle failed',JSON.stringify({lastError,lastRun}));return {enabled:true,error:lastError,lastRun}}
  finally{
   if(lockHeld&&lockClient)await lockClient.query('SELECT pg_advisory_unlock($1::bigint)',['482170041102']).catch(()=>{});
   if(lockClient)lockClient.release();
