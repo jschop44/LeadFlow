@@ -1,11 +1,10 @@
-import pg from 'pg';
 import {randomUUID,createHash} from 'node:crypto';
 const enabled=()=>process.env.KNOWLEDGE_BASE_ENABLED==='true';
 let pool,ready=false;
 export async function knowledgeAction(action,data={}){
  if(!enabled())throw Error('Knowledge base disabled by feature flag');
  if(!process.env.DATABASE_URL)throw Error('Persistent database not configured');
- if(!pool)pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false},max:2});
+ if(!pool){const {default:pg}=await import('pg');pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:{rejectUnauthorized:false},max:2});}
  if(!ready){
   await pool.query(`CREATE TABLE IF NOT EXISTS kb_documents(id uuid PRIMARY KEY,collection text NOT NULL CHECK(collection IN ('business','prospects')),title text NOT NULL,content text NOT NULL,sha256 text NOT NULL,created_at timestamptz DEFAULT now(),archived boolean NOT NULL DEFAULT false)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS kb_feedback(id uuid PRIMARY KEY,document_id uuid REFERENCES kb_documents(id) ON DELETE CASCADE,signal text NOT NULL CHECK(signal IN ('useful','incorrect')),note text NOT NULL DEFAULT '',created_at timestamptz DEFAULT now())`);
