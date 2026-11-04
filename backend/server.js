@@ -105,10 +105,19 @@ const STORE_FILE=join(STORE_DIR,'business-index.json');
 const SNAPSHOT_FILE=join(dirname(fileURLToPath(import.meta.url)),'data','maryland-businesses.json');
 const SNAPSHOT_URL=process.env.LEADFLOW_INDEX_URL||'https://raw.githubusercontent.com/jschop44/LeadFlow/main/backend/data/maryland-businesses.json';
 const businessIndex=new Map();
-configureProspectProvider(()=>Array.from(businessIndex,([key,row])=>({
- key,name:row.element?.tags?.name,website:row.element?.tags?.website||'',
- city:row.element?.tags?.['addr:city']||'',niche:row.niches?.[0]||''
-})).filter(item=>item.name).slice(0,100));
+let prospectIndexOffset=0;
+configureProspectProvider(()=>{
+ const entries=Array.from(businessIndex.entries());
+ if(!entries.length)return [];
+ const count=Math.min(entries.length,100),batch=[];
+ for(let i=0;i<count;i++){
+  const [key,row]=entries[(prospectIndexOffset+i)%entries.length];
+  const tags=row.element?.tags||{};
+  if(tags.name)batch.push({key,name:tags.name,website:tags.website||tags['contact:website']||'',city:tags['addr:city']||'',niche:row.niches?.[0]||''});
+ }
+ prospectIndexOffset=(prospectIndexOffset+count)%entries.length;
+ return batch;
+});
 let persistPending=Promise.resolve();
 function recordKey(x){const t=x.tags||{};const name=cleanName(t.name);const lat=Number(x.lat??x.center?.lat),lon=Number(x.lon??x.center?.lon);const address=[t['addr:housenumber'],t['addr:street'],t['addr:city'],t['addr:postcode']].filter(Boolean).join(' ').toLowerCase().replace(/\s+/g,' ').trim();return name+'|'+(Number.isFinite(lat)?lat.toFixed(3):address)+'|'+(Number.isFinite(lon)?lon.toFixed(3):'')}
 function indexResults(elements,area,niche){let added=0;for(const item of elements){if(!item.tags?.name)continue;const id=recordKey(item);if(!id||id.startsWith('|'))continue;const prev=businessIndex.get(id);const sources=[...new Set([...(prev?.sources||[]),...(item.sourceAgreement||['OpenStreetMap'])])];businessIndex.set(id,{element:{...prev?.element,...item,tags:{...prev?.element?.tags,...item.tags},sourceAgreement:sources,sourceCount:sources.length},sources,areas:[...new Set([...(prev?.areas||[]),area.toLowerCase()])],niches:[...new Set([...(prev?.niches||[]),niche])],updatedAt:Date.now()});if(!prev)added++}if(added||elements.length)persistIndex();return added}
