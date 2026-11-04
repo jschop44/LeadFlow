@@ -55,7 +55,7 @@
 <button id="send-connected" class="secondary">Send email</button>
 <button id="compose-social" class="secondary" disabled>Open message composer</button>
 <button id="open-social" class="secondary" onclick="window.leadflowOpenSocial && window.leadflowOpenSocial()">Open social profile</button>
-</div><details id="outreach-settings" style="margin:18px 0"><summary>One-time sender and service setup</summary><p class="muted">Save your offering and sender details once on this device. They are reused for each lead.</p><div class="filters"><div><label for="out-service">Service you offer</label><input id="out-service" placeholder="e.g. Website conversion optimization"></div><div><label for="out-sender">Your business name and postal address</label><input id="out-sender" placeholder="Business name and address"></div><div><label for="out-optout">Opt-out instructions</label><input id="out-optout" placeholder="Reply unsubscribe"></div></div><div class="actions"><button id="save-outreach-settings" class="secondary">Save settings on this device</button></div></details><div id="outreach-note" class="muted" style="margin:12px 0">Select a business above to begin.</div><label for="draft-output">Personalized draft — review before sending</label><textarea id="draft-output" rows="12" style="width:100%;background:#0d1527;color:#edf2ff;border:1px solid #364663;border-radius:10px;padding:16px" placeholder="Select a lead and click Generate email draft."></textarea></section><section class="stats"><div class="stat"><span class="muted">Discovered leads</span><strong id="count">0</strong></div><div class="stat"><span class="muted">With websites</span><strong id="sites">0</strong></div><div class="stat"><span class="muted">Saved leads</span><strong id="saved">0</strong></div></section>
+</div><details id="outreach-settings" style="margin:18px 0"><summary>One-time sender and service setup</summary><p class="muted">Save your offering and sender details once on this device. They are reused for each lead.</p><div class="filters"><div><label for="out-service">Service you offer</label><input id="out-service" placeholder="e.g. Website conversion optimization"></div><div><label for="out-sender">Your business name and postal address</label><input id="out-sender" placeholder="Business name and address"></div><div><label for="out-optout">Opt-out instructions</label><input id="out-optout" placeholder="Reply unsubscribe"></div></div><div class="actions"><button id="save-outreach-settings" class="secondary">Save settings on this device</button></div></details><div style="margin:14px 0"><label for="manual-recipient">Recipient email address (editable fallback)</label><input id="manual-recipient" type="email" autocomplete="off" inputmode="email" placeholder="Enter a business contact email, if known" style="max-width:560px"><p id="recipient-source" class="muted" style="font-size:13px;margin:6px 0">No recipient selected. You can enter a known business email address manually.</p></div><div id="outreach-note" class="muted" style="margin:12px 0">Select a business above to begin.</div><label for="draft-output">Personalized draft — review before sending</label><textarea id="draft-output" rows="12" style="width:100%;background:#0d1527;color:#edf2ff;border:1px solid #364663;border-radius:10px;padding:16px" placeholder="Select a lead and click Generate email draft."></textarea></section><section class="stats"><div class="stat"><span class="muted">Discovered leads</span><strong id="count">0</strong></div><div class="stat"><span class="muted">With websites</span><strong id="sites">0</strong></div><div class="stat"><span class="muted">Saved leads</span><strong id="saved">0</strong></div></section>
 <section class="panel"><div class="hero"><h2>Business leads</h2><div><label for="filter">Filter results</label><input id="filter" placeholder="Search name or city"></div></div><div class="actions"><button class="secondary" id="previous-page">Previous 20</button><span class="pill" id="page-label">Page 1</span><button class="secondary" id="next-page">Next 20</button><label for="library-filter" style="margin:0">Lead library</label><select id="library-filter" style="width:auto;min-width:165px"><option value="all">All archived</option><option value="new">New</option><option value="seen">Previously found</option><option value="saved">Saved</option></select><button class="secondary" id="show-history">Open library <span id="history-count">0</span></button><span id="library-sync" class="muted" style="font-size:12px">Local archive</span><details style="display:inline-block"><summary style="cursor:pointer">More</summary><button class="secondary" id="reset-seen">Reset seen history</button><button class="secondary" id="clear-history">Clear lead archive</button></details></div><div class="table-wrap"><table><thead><tr><th>Business</th><th>Location</th><th>Website</th><th>Phone</th><th>Owner / contact</th><th>Social profiles</th><th>Lead score</th><th>Save</th></tr></thead><tbody id="results"><tr><td colspan="8" class="empty">Search to discover real business listings.</td></tr></tbody></table></div></section>
 <section class="panel foot"><strong>Data transparency</strong><p>Live results and published contact fields come from OpenStreetMap contributors via Nominatim and Overpass. Research links open external search results for manual owner/contact verification; the app does not automatically crawl those sites or bypass social-platform restrictions. Coverage and contact fields vary by region. A lead score reflects listing completeness, not verified purchase intent. Email addresses are not fabricated, and the app does not send unsolicited emails. Respect source usage limits and applicable outreach rules. Data © OpenStreetMap contributors, ODbL.</p></section></main>
 <script>
@@ -84,6 +84,20 @@ function searchLink(x){return 'https://www.google.com/search?q='+encodeURICompon
 function contactCell(x){const email=x.ownerEmail||x.enrichedEmails?.[0]||x.email||'';const label=x.ownerEmail?'Owner email (listed)':x.enrichedEmails?.length?'Website email (unverified)':'Company email (listed)';return (x.owner?'<strong>'+safe(x.owner)+'</strong><br>':'')+(x.enrichedPeople?.length?x.enrichedPeople.slice(0,3).map(p=>'<strong>'+safe(p.name)+'</strong> <small>('+safe(p.role)+')</small> <a target="_blank" rel="noopener noreferrer" href="'+safe(url(p.source))+'">source ↗</a>').join('<br>')+'<br>':'')+(email?'<a href="mailto:'+safe(email)+'">'+safe(email)+'</a><br><small>'+safe(label)+'</small>':'<small>No published email</small>')+'<br><a target="_blank" rel="noopener noreferrer" href="'+safe(searchLink(x))+'">Research contacts ↗</a>'}
 
 let selectedDraftLead=null,lastDraft='',lastSocialUrl='',lastDraftMode='';
+function recipientEmail(){
+ const manual=$('manual-recipient').value.trim();
+ const email=manual||String(selectedDraftLead?.email||selectedDraftLead?.enrichedEmails?.[0]||'').trim();
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return '';
+ return email;
+}
+function updateRecipient(lead){
+ const found=String(lead?.email||lead?.enrichedEmails?.[0]||'').trim();
+ $('manual-recipient').value=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(found)?found:'';
+ $('recipient-source').textContent=found?'Suggested from business contact research. Verify the address before sending.':'No email found in contact research. Enter a known recipient address manually.';
+}
+$('manual-recipient').addEventListener('input',()=>{
+ $('recipient-source').textContent='Manually edited recipient — not independently verified. Confirm the address belongs to the intended business contact before sending.';
+});
 const SETTINGS_KEY='leadflow-outreach-settings-v1';
 try{const p=JSON.parse(localStorage.getItem(SETTINGS_KEY)||'{}');$('out-service').value=p.service||'';$('out-sender').value=p.sender||'';$('out-optout').value=p.unsubscribe||'Reply unsubscribe'}catch{}
 
@@ -191,8 +205,8 @@ try{
 }})();
 $('send-connected').onclick=async()=>{
  if(!emailSession){$('outreach-note').textContent='Connect Gmail or Microsoft 365 first. If provider authorization is not configured, use Open email app to compose manually; LeadFlow cannot send without authorized account access.';return}if(!selectedDraftLead||lastDraftMode!=='email'){$('outreach-note').textContent='Select a lead and generate an email draft first.';return}
- const to=String(selectedDraftLead.email||selectedDraftLead.enrichedEmails?.[0]||'').trim();
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){$('outreach-note').textContent='No valid recipient email address. Enrich contacts first.';return}
+ const to=recipientEmail();
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to)){$('outreach-note').textContent='Enter a valid recipient email in the editable field above, then try again.';return}
  const lines=$('draft-output').value.trim().split('\n');const subject=lines[0].startsWith('SUBJECT: ')?lines.shift().slice(9):'Business introduction',body=lines.join('\n').trim();
  if(!body||!confirm('Send this email from your connected '+emailProvider+' account to '+to+'? This will actually send the message.'))return;
  const btn=$('send-connected');btn.disabled=true;
@@ -202,8 +216,8 @@ $('send-connected').onclick=async()=>{
 };
 $('compose-email').onclick=()=>{
  if(!selectedDraftLead||lastDraftMode!=='email'){$('outreach-note').textContent='Select a lead and generate an email draft first.';return}
- const email=String(selectedDraftLead.email||selectedDraftLead.enrichedEmails?.[0]||'').trim();
- if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$('outreach-note').textContent='No verified recipient email address is available. Enrich contacts first.';return}
+ const email=recipientEmail();
+ if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){$('outreach-note').textContent='Enter a valid recipient email in the editable field above, then try again.';return}
  const content=$('draft-output').value.trim(),lines=content.split('\n');
  const subject=lines[0].startsWith('SUBJECT: ')?lines.shift().slice(9):'Business introduction';
  const body=lines.join('\n').trim();
