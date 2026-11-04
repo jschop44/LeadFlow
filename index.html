@@ -248,7 +248,7 @@ $('kb-summary').onclick=async()=>{
 };
 $('kb-context').onclick=async()=>{
  try{
-  const data=await knowledgeRequest('context',{query:$('kb-query').value});
+  const data=await knowledgeRequest('context',{query:$('kb-query').value,collection:$('kb-collection').value});
   $('kb-status').textContent=data.context.length+' sourced excerpts. Review evidence before use.';
   $('kb-results').replaceChildren();
   for(const item of data.context){
