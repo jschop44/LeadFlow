@@ -20,8 +20,15 @@ const db=async()=>{const {default:pg}=await import('pg');const u=new URL(process
 export async function runIntelligenceCycle(){
  if(!enabled())return {enabled:false,reason:'Automation requires explicit feature flag'};
  if(running)return {enabled:true,running:true,lastRun,lastCount};
- running=true;let pool;
+ running=true;let pool,lockPool,lockClient,lockHeld=false;
  try{
+  // Session-scoped Postgres advisory lock prevents overlapping cycles across Render instances.
+  // Lock connection is separate from the worker pool so queries cannot deadlock.
+  lockPool=await db();
+  lockClient=await lockPool.connect();
+  const lock=await lockClient.query('SELECT pg_try_advisory_lock($1::bigint) AS acquired',['482170041102']);
+  if(!lock.rows[0]?.acquired)return {enabled:true,skipped:true,reason:'Another intelligence cycle holds the database lock',lastRun};
+  lockHeld=true;
   pool=await db();
   await pool.query(`CREATE TABLE IF NOT EXISTS kb_intelligence_tasks(
    id uuid PRIMARY KEY,document_id uuid NOT NULL REFERENCES kb_documents(id) ON DELETE CASCADE,
@@ -98,7 +105,13 @@ export async function runIntelligenceCycle(){
   lastRun=new Date().toISOString();lastError=null;lastCount=created+discovered;
   return {enabled:true,created,prospectsDiscovered:discovered,websitesResearched:researched,websiteResearchUnavailable:failedResearch,growthLensAudits:audited,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
  }catch(e){lastError=String(e.message||e).slice(0,180);return {enabled:true,error:lastError,lastRun}}
- finally{running=false;if(pool)await pool.end().catch(()=>{})}
+ finally{
+  if(lockHeld&&lockClient)await lockClient.query('SELECT pg_advisory_unlock($1::bigint)',['482170041102']).catch(()=>{});
+  if(lockClient)lockClient.release();
+  if(lockPool)await lockPool.end().catch(()=>{});
+  if(pool)await pool.end().catch(()=>{});
+  running=false;
+ }
 }
 export async function intelligenceAction(action,data={}){
  if(!enabled())return {enabled:false,reason:'Automation requires explicit feature flag'};
