@@ -24,8 +24,8 @@ export async function knowledgeAction(action,data={}){
  if(action==='search'){
   const q=String(data.query||'').trim().slice(0,250),collection=String(data.collection||'');
   if(!q||!['business','prospects'].includes(collection))throw Error('Search query and collection required');
-  const r=await pool.query(`SELECT id,title,collection,ts_rank_cd(to_tsvector('english',content),websearch_to_tsquery('english',$1)) AS score,ts_headline('english',content,websearch_to_tsquery('english',$1),'MaxFragments=3,MaxWords=35,MinWords=8') AS excerpt FROM kb_documents WHERE collection=$2 AND NOT archived AND to_tsvector('english',content) @@ websearch_to_tsquery('english',$1) ORDER BY score DESC LIMIT 8`,[q,collection]);
-  return {results:r.rows,source:'uploaded-knowledge',learning:'retrieval-only'};
+  const r=await pool.query(`SELECT id,title,collection,(ts_rank_cd(to_tsvector('english',d.content),websearch_to_tsquery('english',$1)) + COALESCE(f.adjustment,0)) AS score,ts_headline('english',content,websearch_to_tsquery('english',$1),'MaxFragments=3,MaxWords=35,MinWords=8') AS excerpt FROM kb_documents d LEFT JOIN (SELECT document_id,LEAST(0.2,GREATEST(-0.2,SUM(CASE WHEN signal='useful' THEN 0.02 ELSE -0.05 END))) AS adjustment FROM kb_feedback GROUP BY document_id) f ON f.document_id=d.id WHERE d.collection=$2 AND NOT d.archived AND to_tsvector('english',d.content) @@ websearch_to_tsquery('english',$1) ORDER BY score DESC LIMIT 8`,[q,collection]);
+  return {results:r.rows,source:'uploaded-knowledge',learning:'bounded-feedback-ranking',note:'Feedback influences ranking, not factual truth'};
  }
  if(action==='feedback'){
   const id=String(data.documentId||''),signal=String(data.signal||''),note=String(data.note||'').slice(0,1000);
