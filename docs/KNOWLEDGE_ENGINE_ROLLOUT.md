@@ -6,7 +6,7 @@ Status: implementation in progress; **disabled by default**. Do not enable on pr
 - LeadFlow owns two isolated PostgreSQL collections: `business` and `prospects`. Documents, feedback, and outcomes are stored in namespaced `kb_*` tables.
 - Uploads support text, Markdown, PDF and DOCX with a 1.4 MB file cap. Scanned PDFs need OCR and are not supported. Extracted text is limited to 120,000 characters per document.
 - PostgreSQL full-text search is used instead of paid embeddings. Feedback applies bounded ranking changes; this is not model fine-tuning.
-- Growth Lens reads evidence through LeadFlow's shared-token API. Growth Lens's public-facing knowledge endpoints additionally require `GROWTHLENS_KNOWLEDGE_ACCESS_TOKEN`.
+- Growth Lens reads evidence through LeadFlow's shared-token API. Growth Lens's knowledge endpoints require the existing `GROWTHLENS_PRIVATE_KEY` owner credential through `X-GrowthLens-Key`; the UI reuses the private access key already entered by the owner.
 - Offers are evidence previews, not autonomous emails. Human review and existing send confirmation remain mandatory.
 - `kb_outcomes` stores manually recorded outreach stages. Counts are observational, not causal revenue estimates.
 
@@ -14,8 +14,8 @@ Status: implementation in progress; **disabled by default**. Do not enable on pr
 1. Verify Neon database URL, free-tier capacity, and backups; do not copy secrets into tickets.
 2. Set `KNOWLEDGE_BASE_ENABLED=true` on LeadFlow backend only, then verify its authenticated `/knowledge` actions `status`, `ingest`, `search`, `feedback`, `learning-summary`, `offer-preview`.
 3. Test PDF and DOCX ingestion with non-sensitive fixtures and verify no content appears in the wrong collection.
-4. Configure a separate long random `GROWTHLENS_KNOWLEDGE_ACCESS_TOKEN` in Growth Lens; enable its feature flag only after the shared-token endpoint is tested.
-5. Verify authenticated Growth Lens `/api/intelligence/knowledge-search` and `/api/intelligence/knowledge-context`; verify unauthenticated requests return 401.
+4. Confirm the existing `GROWTHLENS_PRIVATE_KEY` is configured in Growth Lens; enable its feature flag only after the shared-token endpoint is tested.
+5. Verify authenticated Growth Lens `/api/intelligence/knowledge-search`, `/api/intelligence/knowledge-context` and the audit evidence panel; verify unauthenticated requests return 401.
 6. Verify existing LeadFlow search, Gmail OAuth and confirmation, and Growth Lens audit reports.
 
 ## Disable and rollback
@@ -27,7 +27,7 @@ No OCR, no automatic background crawling of private documents, no automated mode
 ## Learning controls
 - A document receiving at least two `incorrect` feedback events is flagged for review and excluded from assembled offer context until corrected or replaced. It remains visible in search for inspection.
 - Observed `qualified`, `won`, and `lost` outcomes adjust document retrieval scores only within fixed bounds. They do not prove causality.
-- Use the document manager to archive superseded content. Archiving is reversible at the database level but there is no unarchive UI yet.
+- Use the document manager to archive superseded content. Archiving is reversible using the Archived documents / Restore UI.
 - Source IDs remain attached to evidence; do not copy generated previews into automatic send queues.
 
 ## Release acceptance criteria
@@ -41,3 +41,9 @@ No OCR, no automatic background crawling of private documents, no automated mode
 
 ## CI release gate
 The LeadFlow test workflow now installs open-source PDF.js and Mammoth parsers, generates real PDF and DOCX fixtures, and starts a disposable PostgreSQL 16 service. The knowledge integration suite checks ingestion, deduplication, collection isolation, search, sourced offer previews, disputed-document exclusion, feedback, observed outcomes, archive and restore. These tests do not use production Neon data.
+
+## Production rollout status
+- Knowledge flags were enabled on the existing free Render services on 2026-11-04. The LeadFlow knowledge tables were created in the existing Neon production branch and contain no uploaded customer documents at the time of verification.
+- The Growth Lens audit UI retrieves evidence using the existing private access key; no second credential is required.
+- Release verification should inspect Render health for `knowledgeBase.enabled` and `knowledgeBase.storageReady`, and confirm both GitHub Actions test suites pass on the deployed commits.
+- To disable quickly, set `KNOWLEDGE_BASE_ENABLED=false` on both services; keep `kb_*` tables intact.
