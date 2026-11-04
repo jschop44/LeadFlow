@@ -27,6 +27,10 @@ export async function knowledgeAction(action,data={}){
   const r=await pool.query(`SELECT d.id,d.title,d.collection,(ts_rank_cd(to_tsvector('english',d.content),websearch_to_tsquery('english',$1)) + COALESCE(f.adjustment,0)) AS score,ts_headline('english',d.content,websearch_to_tsquery('english',$1),'MaxFragments=3,MaxWords=35,MinWords=8') AS excerpt FROM kb_documents d LEFT JOIN (SELECT document_id,LEAST(0.2,GREATEST(-0.2,SUM(CASE WHEN signal='useful' THEN 0.02 ELSE -0.05 END))) AS adjustment FROM kb_feedback GROUP BY document_id) f ON f.document_id=d.id WHERE d.collection=$2 AND NOT d.archived AND to_tsvector('english',d.content) @@ websearch_to_tsquery('english',$1) ORDER BY score DESC LIMIT 8`,[q,collection]);
   return {results:r.rows,source:'uploaded-knowledge',learning:'bounded-feedback-ranking',note:'Feedback influences ranking, not factual truth'};
  }
+ if(action==='learning-summary'){
+  const r=await pool.query("SELECT d.collection,COUNT(DISTINCT d.id)::int AS documents,COUNT(f.id)::int AS feedback_events,COUNT(f.id) FILTER (WHERE f.signal='useful')::int AS useful,COUNT(f.id) FILTER (WHERE f.signal='incorrect')::int AS incorrect FROM kb_documents d LEFT JOIN kb_feedback f ON f.document_id=d.id WHERE NOT d.archived GROUP BY d.collection");
+  return {collections:r.rows,modelTraining:false,method:'bounded-feedback-ranking'};
+ }
  if(action==='feedback'){
   const id=String(data.documentId||''),signal=String(data.signal||''),note=String(data.note||'').slice(0,1000);
   if(!/^[0-9a-f-]{36}$/i.test(id)||!['useful','incorrect'].includes(signal))throw Error('Invalid feedback');
