@@ -22,7 +22,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm ci --ignore-scripts
       - run: node --check backend/server.js
       - run: node --check backend/intelligence-automation.js
       - run: npm run test:intelligence-flags
