@@ -65,6 +65,10 @@
 <label for="kb-query">Search knowledge</label><input id="kb-query" placeholder="e.g. website conversion pricing">
 <div class="actions" style="margin:10px 0"><button id="kb-search" type="button" class="secondary">Search collection</button></div><div class="actions" style="margin:10px 0"><button id="kb-summary" type="button" class="secondary">View learning statistics</button><button id="kb-context" type="button" class="secondary">Find sourced evidence</button><button id="kb-offer" type="button" class="secondary">Preview sourced offer</button><button id="kb-list" type="button" class="secondary">Manage documents</button><button id="kb-archived" type="button" class="secondary">Archived documents</button><button id="kb-outcomes" type="button" class="secondary">View outcome learning</button></div>
 <p id="kb-status" role="status" class="muted"></p><div id="kb-results" style="white-space:pre-wrap"></div>
+</details><details id="intelligence-automation-panel" style="margin:14px 0"><summary>Automated Intelligence Engine — review queue</summary>
+<p class="muted">Runs scheduled, source-grounded analysis of saved business documents. Suggested opportunities require approval. No emails are sent automatically.</p>
+<div class="actions"><button type="button" id="automation-status">Engine status</button><button type="button" id="automation-run" class="secondary">Run analysis now</button><button type="button" id="automation-queue" class="secondary">Review suggestions</button></div>
+<p id="automation-message" class="muted" role="status"></p><div id="automation-results"></div>
 </details><details id="email-template-panel" style="margin:14px 0"><summary>Email templates — create, save, load, import or export</summary>
 <p class="muted" style="margin:10px 0">Templates are saved on this device. Use placeholders: {{business}}, {{contact}}, {{service}}, {{sender}}, {{unsubscribe}}. Loading a template fills the editable draft; no email is sent.</p>
 <label for="template-select">Saved templates</label><select id="template-select" style="max-width:560px"><option value="">Choose a template...</option></select>
@@ -232,6 +236,32 @@ async function knowledgeRequest(action,fields={}){
  const response=await fetch('https://leadflow-research-api.onrender.com/knowledge',{method:'POST',headers:{'content-type':'application/json','x-leadflow-token':token},body:JSON.stringify({action,...fields}),signal:AbortSignal.timeout(25000)});
  const result=await response.json();if(!response.ok)throw Error(result.error||'Knowledge request failed');return result;
 }
+async function automationRequest(action,fields={}){
+ const token=$('api-token').value.trim();if(!token)throw Error('Enter your API access token first');
+ const response=await fetch('https://leadflow-research-api.onrender.com/automation',{method:'POST',headers:{'content-type':'application/json','x-leadflow-token':token},body:JSON.stringify({action,...fields}),signal:AbortSignal.timeout(30000)});
+ const result=await response.json();if(!response.ok)throw Error(result.error||'Automation unavailable');return result;
+}
+$('automation-status').onclick=async()=>{try{$('automation-message').textContent=JSON.stringify(await automationRequest('status'),null,2)}catch(e){$('automation-message').textContent=e.message}};
+$('automation-run').onclick=async()=>{try{$('automation-message').textContent=JSON.stringify(await automationRequest('run'),null,2)}catch(e){$('automation-message').textContent=e.message}};
+$('automation-queue').onclick=async()=>{
+ const out=$('automation-results');out.replaceChildren();
+ try{
+  const r=await automationRequest('tasks',{status:'pending_review'});
+  $('automation-message').textContent=r.enabled===false?r.reason:r.tasks.length+' opportunities awaiting review';
+  for(const item of r.tasks||[]){
+   const article=document.createElement('article');article.style.cssText='border-bottom:1px solid #536275;padding:10px 0';
+   const title=document.createElement('strong');title.textContent=item.title;
+   const reason=document.createElement('p');reason.textContent=item.reason;
+   const buttons=document.createElement('div');buttons.className='actions';
+   for(const [status,label] of [['approved','Approve recommendation'],['dismissed','Dismiss']]){
+    const btn=document.createElement('button');btn.type='button';btn.className='secondary';btn.textContent=label;
+    btn.onclick=async()=>{try{const result=await automationRequest('review',{taskId:item.id,status});if(result.updated){article.remove();$('automation-message').textContent='Recommendation '+status+'. No outreach sent.'}}catch(e){$('automation-message').textContent=e.message}};
+    buttons.append(btn);
+   }
+   article.append(title,reason,buttons);out.append(article);
+  }
+ }catch(e){$('automation-message').textContent=e.message}
+};
 $('kb-file').onchange=async()=>{
  const file=$('kb-file').files?.[0];if(!file)return;
  if(!/\.(txt|md|pdf|docx)$/i.test(file.name)||file.size>1400000){$('kb-status').textContent='Choose PDF, DOCX, TXT or MD under 1.4 MB.';return}
