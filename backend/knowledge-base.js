@@ -27,6 +27,7 @@ export async function knowledgeAction(action,data={}){
  if(!ready){
   await pool.query(`CREATE TABLE IF NOT EXISTS kb_documents(id uuid PRIMARY KEY,collection text NOT NULL CHECK(collection IN ('business','prospects')),title text NOT NULL,content text NOT NULL,sha256 text NOT NULL,created_at timestamptz DEFAULT now(),archived boolean NOT NULL DEFAULT false)`);
   await pool.query(`CREATE TABLE IF NOT EXISTS kb_feedback(id uuid PRIMARY KEY,document_id uuid REFERENCES kb_documents(id) ON DELETE CASCADE,signal text NOT NULL CHECK(signal IN ('useful','incorrect')),note text NOT NULL DEFAULT '',created_at timestamptz DEFAULT now())`);
+  await pool.query("CREATE TABLE IF NOT EXISTS kb_outcomes(id uuid PRIMARY KEY,document_id uuid REFERENCES kb_documents(id) ON DELETE CASCADE,stage text NOT NULL CHECK(stage IN ('contacted','replied','qualified','won','lost')),created_at timestamptz DEFAULT now())");
   await pool.query('CREATE INDEX IF NOT EXISTS kb_documents_search_idx ON kb_documents USING gin(to_tsvector(\'english\',content))');
   ready=true;
  }
@@ -73,6 +74,18 @@ export async function knowledgeAction(action,data={}){
    evidence:sources.map(item=>({documentId:item.id,title:item.title,excerpt:item.excerpt})),
    recommendation:sources.length?'Review the sourced business capabilities below and customize a relevant offer.':'No verified matching business capabilities found. Add source documents before drafting an offer.',
    caution:'No pricing, performance claims, or outcomes are inferred. Human approval is required before sending.'};
+ }
+ if(action==='record-outcome'){
+  const id=String(data.documentId||''),stage=String(data.stage||'');
+  if(!/^[0-9a-f-]{36}$/i.test(id)||!['contacted','replied','qualified','won','lost'].includes(stage))throw Error('Invalid outcome');
+  const found=await pool.query('SELECT id FROM kb_documents WHERE id=$1 AND NOT archived',[id]);
+  if(!found.rows.length)throw Error('Document not found');
+  await pool.query('INSERT INTO kb_outcomes(id,document_id,stage) VALUES($1,$2,$3)',[randomUUID(),id,stage]);
+  return {recorded:true,stage,learning:'observational-only'};
+ }
+ if(action==='outcome-summary'){
+  const r=await pool.query('SELECT d.collection,o.stage,COUNT(*)::int AS events FROM kb_outcomes o JOIN kb_documents d ON d.id=o.document_id WHERE NOT d.archived GROUP BY d.collection,o.stage ORDER BY d.collection,o.stage');
+  return {outcomes:r.rows,note:'Observational counts only; not causal ROI or conversion rates'};
  }
  if(action==='learning-summary'){
   const r=await pool.query("SELECT d.collection,COUNT(DISTINCT d.id)::int AS documents,COUNT(f.id)::int AS feedback_events,COUNT(f.id) FILTER (WHERE f.signal='useful')::int AS useful,COUNT(f.id) FILTER (WHERE f.signal='incorrect')::int AS incorrect FROM kb_documents d LEFT JOIN kb_feedback f ON f.document_id=d.id WHERE NOT d.archived GROUP BY d.collection");
