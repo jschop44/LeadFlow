@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {knowledgeAction,closeKnowledgePool} from '../knowledge-base.js';
+import {runIntelligenceCycle,intelligenceAction} from '../intelligence-automation.js';
+test('scheduled engine creates deduplicated review tasks and never sends outreach',async(t)=>{
+ t.after(closeKnowledgePool);
+ process.env.INTELLIGENCE_AUTOMATION_ENABLED='true';
+ const created=await knowledgeAction('ingest',{collection:'business',title:'Automation integration '+Date.now(),content:'We improve website accessibility and conversion with lead capture forms and performance optimization. '+Date.now()});
+ t.after(async()=>{await knowledgeAction('archive',{documentId:created.id})});
+ const first=await runIntelligenceCycle();
+ assert.equal(first.enabled,true);
+ assert.ok(first.documentsScanned>=1);
+ assert.equal(first.automaticOutreach,false);
+ const queue=await intelligenceAction('tasks',{status:'pending_review'});
+ const item=queue.tasks.find(x=>x.source_id===created.id);
+ assert.ok(item,'document should produce reviewable opportunity');
+ const again=await runIntelligenceCycle();
+ assert.equal(again.created,0,'repeated cycles should not duplicate opportunities');
+ const review=await intelligenceAction('review',{taskId:item.id,status:'approved'});
+ assert.equal(review.updated,true);
+ assert.equal(review.automaticOutreach,false);
+});
