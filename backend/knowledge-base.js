@@ -8,8 +8,19 @@ export async function extractUploadedText(data){
  if(/\.(txt|md)$/i.test(filename))return bytes.toString('utf8');
  if(/\.pdf$/i.test(filename)){
   if(bytes.subarray(0,5).toString()!=='%PDF-')throw Error('Invalid PDF');
-  const {default:parse}=await import('pdf-parse');
-  return (await parse(bytes,{max:80})).text;
+  const pdfjs=await import('pdfjs-dist/legacy/build/pdf.mjs');
+  const task=pdfjs.getDocument({data:new Uint8Array(bytes),useSystemFonts:true,disableFontFace:true});
+  const doc=await task.promise;
+  try{
+   if(doc.numPages>80)throw Error('PDF exceeds 80 pages');
+   const lines=[];
+   for(let page=1;page<=doc.numPages;page++){
+    const text=await (await doc.getPage(page)).getTextContent();
+    lines.push(text.items.map(item=>item.str||'').join(' '));
+    if(lines.join(' ').length>120000)throw Error('Extracted text exceeds 120000 characters');
+   }
+   return lines.join('\\n');
+  }finally{await doc.destroy()}
  }
  if(/\.docx$/i.test(filename)){
   if(bytes.subarray(0,2).toString()!=='PK')throw Error('Invalid DOCX');
