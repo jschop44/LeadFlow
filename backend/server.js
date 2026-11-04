@@ -1,4 +1,4 @@
-import {intelligenceAction,startIntelligenceScheduler,configureProspectProvider} from './intelligence-automation.js';
+import {intelligenceAction,startIntelligenceScheduler,configureProspectProvider,configureResearchProvider} from './intelligence-automation.js';
 import {knowledgeAction} from './knowledge-base.js';
 import {initLeadLibrary,leadLibraryReady,libraryAction,verifyLeadLibrary} from './lead-library.js';
 import {oauthStart,oauthCallback,oauthExchange,oauthDisconnect,oauthSend} from './email-oauth.js';
@@ -23,6 +23,18 @@ const hits=new Map();
 const blocked=(ip)=>{if(net.isIP(ip)===4){const p=ip.split('.').map(Number);return p[0]===0||p[0]===10||p[0]===127||p[0]>=224||p[0]===169&&p[1]===254||p[0]===172&&p[1]>=16&&p[1]<=31||p[0]===192&&p[1]===168||p[0]===100&&p[1]>=64&&p[1]<=127||p[0]===192&&p[1]===0||p[0]===198&&[18,19].includes(p[1])}return /^(::1|::|f[c-d]|fe80:|::ffff:)/i.test(ip)};
 async function validate(raw){const u=new URL(raw);if(!['http:','https:'].includes(u.protocol)||u.username||u.password||u.port&& !['80','443'].includes(u.port))throw Error('Restricted URL');const h=u.hostname.toLowerCase();if(!h.includes('.')||h.endsWith('.local')||h.endsWith('.internal')||h.endsWith('.onion')||h==='localhost'||net.isIP(h))throw Error('Restricted host');const records=await dns.lookup(h,{all:true});if(!records.length||records.some(r=>blocked(r.address)))throw Error('Restricted network destination');return u}
 async function get(url){await validate(url);const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),7000);try{const r=await fetch(url,{redirect:'manual',signal:controller.signal,headers:{'user-agent':'LeadFlowBusinessResearch/1.0','accept':'text/html,text/plain'}});if(r.status>=300&&r.status<400)throw Error('Redirect disallowed');if(!r.ok)throw Error('HTTP '+r.status);const type=r.headers.get('content-type')||'';if(!/text\/html|text\/plain/i.test(type))throw Error('Not HTML');if(Number(r.headers.get('content-length')||0)>350000)throw Error('Page too large');let body='';for await(const chunk of r.body){body+=new TextDecoder().decode(chunk);if(body.length>350000)throw Error('Page too large')}return body}finally{clearTimeout(timer)}}
+configureResearchProvider(async website=>{
+ const u=await validate(website);
+ if(u.protocol!=='https:')return {status:'unavailable',reason:'HTTPS website required'};
+ // Respect robots.txt; inaccessible rules are treated as unavailable.
+ const robots=await get(u.origin+'/robots.txt').catch(()=>null);
+ if(robots===null||!robotsOK(robots,u.pathname||'/'))return {status:'unavailable',reason:'Robots policy unavailable or access disallowed'};
+ const html=await get(u.origin+u.pathname);
+ const title=(html.match(/<title[^>]*>([^<]{1,180})<\\/title>/i)||[])[1]?.replace(/\\s+/g,' ').trim();
+ const description=(html.match(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{1,300})/i)||[])[1]?.trim();
+ if(!title&&!description)return {status:'unavailable',reason:'No page title or description verified'};
+ return {status:'verified',summary:[title&&'Page title: '+title,description&&'Meta description: '+description].filter(Boolean).join(' | ')};
+});
 function robotsOK(text,path){const groups=text.split(/(?=^user-agent\s*:)/im);let rules=[];for(const group of groups){const lines=group.split(/\r?\n/).map(x=>x.split('#')[0].trim());const agents=lines.filter(x=>/^user-agent\s*:/i.test(x)).map(x=>x.split(':').slice(1).join(':').trim().toLowerCase());if(!agents.includes('*')&&!agents.includes('leadflowbusinessresearch/1.0'))continue;for(const line of lines){const m=line.match(/^(allow|disallow)\s*:\s*(.*)$/i);if(m&&m[2])rules.push({allow:m[1].toLowerCase()==='allow',path:m[2]})}}const matched=rules.filter(r=>path.startsWith(r.path.split('*')[0])).sort((a,b)=>b.path.length-a.path.length)[0];return !matched||matched.allow}
 function extract(html,source){const plain=html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,' ').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,' ');const emails=[...new Set((plain.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi)||[]).filter(e=>!/(example\.|test\.|\.png$|\.jpg$|\.svg$|sentry)/i.test(e)))].slice(0,20);const phones=[...new Set((plain.replace(/<[^>]+>/g,' ').match(/(?:\+1[ .-]?)?\(?\d{3}\)?[ .-]?\d{3}[ .-]?\d{4}/g)||[]))].slice(0,10);const social=[];for(const m of plain.matchAll(/href\s*=\s*["']([^"']+)["']/gi)){try{const u=new URL(m[1],source);if(['linkedin.com','facebook.com','instagram.com','youtube.com','x.com','twitter.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h))&&!social.includes(u.href))social.push(u.href)}catch{}}return {emails,phones,socials:social.slice(0,15)}}
 function peopleFromStructuredData(html,source){
