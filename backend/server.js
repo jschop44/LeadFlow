@@ -252,22 +252,24 @@ async function discoverNationwideCandidates(){
   if(!ids.length){console.log('Nationwide discovery: no candidates',niche);return}
   const entities=await fetchJSON('https://www.wikidata.org/w/api.php?'+new URLSearchParams({action:'wbgetentities',ids:ids.join('|'),props:'claims|labels|descriptions',languages:'en',format:'json'}),{signal:AbortSignal.timeout(12000),headers:{'user-agent':'LeadFlowResearch/1.0 (business discovery)'}});
   let verified=0;
+  const rejected={nonUS:0,missingWebsiteOrName:0,alreadyIndexed:0,notVerifiedOnline:0};
   for(const entity of Object.values(entities?.entities||{})){
    if(verified>=12)break;
    const claims=entity.claims||{};
    const us=claims.P17?.some(c=>c.mainsnak?.datavalue?.value?.id==='Q30');
-   if(!us)continue;
+   if(!us){rejected.nonUS++;continue}
    const website=claims.P856?.map(c=>c.mainsnak?.datavalue?.value).find(v=>typeof v==='string'&&/^https?:\/\//.test(v));
    const domain=catalogDomain(website),name=entity.labels?.en?.value;
-   if(!domain||!name||onlineCatalog.has(domain))continue;
+   if(!domain||!name){rejected.missingWebsiteOrName++;continue}
+   if(onlineCatalog.has(domain)){rejected.alreadyIndexed++;continue}
    const info=await inspectBusinessWebsite(website);
-   if(info.classification!=='Online')continue;
+   if(info.classification!=='Online'){rejected.notVerifiedOnline++;continue}
    const evidence='Wikidata US country statement and public website inspection';
    const element={type:'node',id:entity.id,tags:{name,website},classification:'Online',platform:info.platform,classificationEvidence:info.classificationEvidence,usEvidence:evidence};
    const row={domain,niches:[niche],checkedAt:Date.now(),classification:'Online',platform:info.platform,evidence:info.classificationEvidence,usEvidence:evidence,element};
    await catalogStore.save(row);verified++;
   }
-  console.log('Nationwide discovery',JSON.stringify({niche,candidates:ids.length,verified}));
+  console.log('Nationwide discovery',JSON.stringify({niche,candidates:ids.length,verified,rejected}));
  }catch(e){if(String(e.message).includes('429'))discoveryBackoffUntil=Date.now()+3600000;console.warn('Nationwide discovery skipped:',niche,e.message)}
 }
 function refreshQueueStatus(){const now=Date.now(),pending=new Map();for(const row of businessIndex.values()){const tags=row.element?.tags||{},website=tags.website||tags['contact:website'],domain=catalogDomain(website);if(!domain||pending.has(domain))continue;const checkedAt=Number(onlineCatalog.get(domain)?.checkedAt)||0;const ageDays=checkedAt?Math.max(0,Math.floor((now-checkedAt)/86400000)):null;if(ageDays===null||ageDays>=7)pending.set(domain,{domain,ageDays,priority:ageDays===null||ageDays>30?'high':'medium'});}const queue=[...pending.values()].sort((a,b)=>(a.ageDays===null?-1:b.ageDays===null?1:b.ageDays-a.ageDays)||a.domain.localeCompare(b.domain));return {pending:queue.length,highPriority:queue.filter(x=>x.priority==='high').length,mediumPriority:queue.filter(x=>x.priority==='medium').length,scheduledBatchSize:12,refreshIntervalMinutes:15,active:catalogRefreshActive,next:queue.slice(0,12)};}
