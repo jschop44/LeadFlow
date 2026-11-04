@@ -241,7 +241,13 @@ async function automationRequest(action,fields={}){
  const response=await fetch('https://leadflow-research-api.onrender.com/automation',{method:'POST',headers:{'content-type':'application/json','x-leadflow-token':token},body:JSON.stringify({action,...fields}),signal:AbortSignal.timeout(30000)});
  const result=await response.json();if(!response.ok)throw Error(result.error||'Automation unavailable');return result;
 }
-$('automation-status').onclick=async()=>{try{$('automation-message').textContent=JSON.stringify(await automationRequest('status'),null,2)}catch(e){$('automation-message').textContent=e.message}};
+$('automation-status').onclick=async()=>{
+ try{
+  const state=await automationRequest('dashboard');
+  const p=state.prospects;
+  $('automation-message').textContent='Engine '+(state.enabled?'active':'disabled')+' · '+p.total+' prospects · '+p.pending+' awaiting review · '+p.researched+' websites researched · '+p.unavailable+' sites unavailable · '+state.suggestionsPending+' knowledge suggestions · Last run: '+(state.lastRun||'not yet');
+ }catch(e){$('automation-message').textContent=e.message}
+};
 $('automation-run').onclick=async()=>{try{$('automation-message').textContent=JSON.stringify(await automationRequest('run'),null,2)}catch(e){$('automation-message').textContent=e.message}};
 $('automation-prospects').onclick=async()=>{
  const panel=$('automation-results');panel.replaceChildren();
