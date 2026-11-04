@@ -119,11 +119,11 @@ configureProspectProvider(()=>{
  // Rotate both sources so the bounded intelligence cycle can eventually ingest all of them.
  const mapped=Array.from(businessIndex.entries()).map(([key,row])=>{
   const tags=row.element?.tags||{};
-  return {key,name:tags.name||'',website:tags.website||tags['contact:website']||'',city:tags['addr:city']||'',niche:row.niches?.[0]||''};
+  return {key,name:tags.name||'',website:tags.website||tags['contact:website']||'',city:tags['addr:city']||'',niche:row.niches?.[0]||'',source:'OpenStreetMap indexed snapshot'};
  });
  const nationwide=Array.from(onlineCatalog.values()).filter(row=>row.classification==='Online'||row.classification==='Local + Online').map(row=>{
   const tags=row.element?.tags||{};
-  return {key:'nationwide:'+row.domain,name:tags.name||'',website:tags.website||'',city:tags['addr:city']||'',niche:row.niches?.[0]||''};
+  return {key:'nationwide:'+row.domain,name:tags.name||'',website:tags.website||'',city:tags['addr:city']||'',niche:row.niches?.[0]||'',source:'Wikidata nationwide verified catalog'};
  });
  const seen=new Set(),entries=[];
  for(const item of [...nationwide,...mapped]){
