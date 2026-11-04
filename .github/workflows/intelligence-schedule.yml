@@ -1,10 +1,13 @@
 name: Wake LeadFlow intelligence cycle
 on:
   schedule:
-    - cron: '*/15 * * * *'
+    - cron: '7,22,37,52 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: leadflow-intelligence-cycle
+  cancel-in-progress: false
 jobs:
   wake:
     runs-on: ubuntu-latest
