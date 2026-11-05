@@ -1,9 +1,9 @@
 name: Wake LeadFlow intelligence cycle
 on:
-  # One-time first attempt at 10:13 PM EST on Nov 4, 2026 (03:13 UTC Nov 5).
+  # One-time first attempt at 10:16 PM EST on Nov 4, 2026 (03:16 UTC Nov 5).
   # GitHub scheduled triggers are best-effort and may run late or be skipped.
   schedule:
-    - cron: '13 3 * * *'
+    - cron: '16 3 * * *'
   workflow_dispatch:
 permissions:
   contents: read
