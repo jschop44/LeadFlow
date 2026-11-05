@@ -7,6 +7,8 @@ import {setTimeout as delay} from 'node:timers/promises';
 import net from 'node:net';
 assert.ok(process.env.DATABASE_URL, 'DATABASE_URL must target the restored staging branch');
 assert.equal(process.env.RECOVERY_DRILL_CONFIRMED, 'yes', 'Set RECOVERY_DRILL_CONFIRMED=yes after checking the restored branch URL');
+const recoveryHost=new URL(process.env.DATABASE_URL).hostname;
+assert.equal(recoveryHost,'ep-summer-sun-b8z5lyht-pooler.c-14.us-east-1.aws.neon.tech','Refusing to run: connection does not target the isolated restored Neon branch');
 const server=net.createServer();await new Promise((resolve,reject)=>server.listen(0,'127.0.0.1',resolve).on('error',reject));const port=server.address().port;await new Promise(resolve=>server.close(resolve));
 const child=spawn(process.execPath,['backend/server.js'],{env:{...process.env,PORT:String(port),INTELLIGENCE_ENGINE_ENABLED:'false',KNOWLEDGE_BASE_ENABLED:'false',LEADFLOW_LIVE_DIAGNOSTICS:'0'},stdio:['ignore','pipe','pipe']});
 let output='';for(const stream of [child.stdout,child.stderr])stream.on('data',chunk=>{output+=String(chunk).slice(0,1000)});
