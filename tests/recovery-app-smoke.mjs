@@ -14,5 +14,6 @@ try{
  let response;for(let attempt=0;attempt<50;attempt++){if(child.exitCode!==null)throw Error('Backend exited before ready');try{response=await fetch('http://127.0.0.1:'+port+'/health',{signal:AbortSignal.timeout(1500)});if(response.ok)break}catch{}await delay(300)}
  assert.ok(response?.ok,'Restored-branch app health check failed: '+output.slice(-1500));
  const health=await response.json();assert.ok(health,'Missing app health response');
- console.log(JSON.stringify({passed:true,checks:['full backend process boot','health HTTP 200','restored branch configured'],healthStatus:response.status}));
+ let verified=false;for(let attempt=0;attempt<60;attempt++){if(/Neon lead library verification.*\\"passed\\":true/.test(output)){verified=true;break}if(/Lead library unavailable:/.test(output))break;await delay(250)}assert.ok(verified,'Restored-branch lead library verification did not pass: '+output.slice(-1500));
+ console.log(JSON.stringify({passed:true,checks:['full backend process boot','health HTTP 200','restored branch configured','lead library transactional verification'],healthStatus:response.status}));
 }finally{child.kill('SIGTERM')}
