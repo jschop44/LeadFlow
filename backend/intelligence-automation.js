@@ -75,7 +75,7 @@ export async function runIntelligenceCycle(){
    if(status==='verified')researched++;else failedResearch++;
   }
   // One Growth Lens audit per cycle, limited to sites with verified accessible metadata.
-  let audited=0;
+  let audited=0,failedAudits=0;
   if(process.env.INTELLIGENCE_AUTO_AUDIT_ENABLED==='true'){
    const auditBatch=await pool.query(`SELECT id,website FROM kb_prospect_candidates
     WHERE research_status='verified' AND website IS NOT NULL AND website<>''
@@ -88,7 +88,7 @@ export async function runIntelligenceCycle(){
     const verified=outcome?.status==='verified'&&typeof outcome.finding==='string';
     await pool.query('UPDATE kb_prospect_candidates SET audit_status=$2,audit_finding=$3,audited_at=now() WHERE id=$1',
       [candidate.id,verified?'verified':'unavailable',String(verified?outcome.finding:outcome?.reason||'No verified finding').slice(0,450)]);
-    if(verified)audited++;
+    if(verified)audited++;else failedAudits++;
    }
   }
   const documents=await pool.query(`SELECT d.id,d.title,d.content,d.collection
@@ -106,7 +106,7 @@ export async function runIntelligenceCycle(){
    }
   }
   lastRun=new Date().toISOString();lastError=null;lastCount=created+discovered;
-  console.info('Intelligence cycle completed',JSON.stringify({lastRun,created,prospectsDiscovered:discovered,nationwideCandidates,mappedCandidates,websitesResearched:researched,growthLensAudits:audited,documentsScanned:documents.rows.length,durationMs:Date.now()-cycleStarted}));
+  console.info('Intelligence cycle completed',JSON.stringify({lastRun,created,prospectsDiscovered:discovered,nationwideCandidates,mappedCandidates,websitesResearched:researched,growthLensAudits:audited,growthLensAuditsUnavailable:failedAudits,documentsScanned:documents.rows.length,durationMs:Date.now()-cycleStarted}));
   return {enabled:true,created,prospectsDiscovered:discovered,nationwideCandidates,mappedCandidates,websitesResearched:researched,websiteResearchUnavailable:failedResearch,growthLensAudits:audited,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
  }catch(e){lastError=String(e.message||e).slice(0,180);console.error('Intelligence cycle failed',JSON.stringify({lastError,lastRun,durationMs:Date.now()-cycleStarted}));return {enabled:true,error:lastError,lastRun}}
  finally{
