@@ -80,7 +80,7 @@ export async function runIntelligenceCycle(){
    const auditBatch=await pool.query(`SELECT id,website FROM kb_prospect_candidates
     WHERE research_status='verified' AND website IS NOT NULL AND website<>''
       AND (audited_at IS NULL OR audited_at<now()-interval '30 days')
-    ORDER BY audited_at ASC NULLS FIRST,discovered_at ASC LIMIT 1`);
+    ORDER BY (source='Wikidata nationwide verified catalog' AND audited_at IS NULL) DESC, audited_at ASC NULLS FIRST,discovered_at ASC LIMIT 1`);
    for(const candidate of auditBatch.rows){
     let outcome;
     try{outcome=await auditProvider(candidate.website)}
