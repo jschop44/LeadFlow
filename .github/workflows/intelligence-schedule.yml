@@ -1,7 +1,9 @@
 name: Wake LeadFlow intelligence cycle
 on:
   schedule:
-    - cron: '7,22,37,52 * * * *'
+    # Run hourly at minute 30 UTC; :30 is also :30 Eastern across EST/EDT.
+    # First intended run after this change: 2026-11-05 02:30 UTC (Nov 4, 9:30 PM EST).
+    - cron: '30 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
