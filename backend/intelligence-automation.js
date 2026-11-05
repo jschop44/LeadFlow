@@ -20,14 +20,14 @@ const db=async()=>{const {default:pg}=await import('pg');const u=new URL(process
 export async function runIntelligenceCycle(){
  if(!enabled())return {enabled:false,reason:'Automation requires explicit feature flag'};
  if(running)return {enabled:true,running:true,lastRun,lastCount};
- running=true;let pool,lockPool,lockClient,lockHeld=false;
+ running=true;const cycleStarted=Date.now();console.info('Intelligence cycle started',JSON.stringify({startedAt:new Date(cycleStarted).toISOString()}));let pool,lockPool,lockClient,lockHeld=false;
  try{
   // Session-scoped Postgres advisory lock prevents overlapping cycles across Render instances.
   // Lock connection is separate from the worker pool so queries cannot deadlock.
   lockPool=await db();
   lockClient=await lockPool.connect();
   const lock=await lockClient.query('SELECT pg_try_advisory_lock($1::bigint) AS acquired',['482170041102']);
-  if(!lock.rows[0]?.acquired)return {enabled:true,skipped:true,reason:'Another intelligence cycle holds the database lock',lastRun};
+  if(!lock.rows[0]?.acquired){console.info('Intelligence cycle skipped',JSON.stringify({reason:'database advisory lock held'}));return {enabled:true,skipped:true,reason:'Another intelligence cycle holds the database lock',lastRun}}
   lockHeld=true;
   pool=await db();
   await pool.query(`CREATE TABLE IF NOT EXISTS kb_intelligence_tasks(
@@ -105,9 +105,9 @@ export async function runIntelligenceCycle(){
    }
   }
   lastRun=new Date().toISOString();lastError=null;lastCount=created+discovered;
-  console.info('Intelligence cycle completed',JSON.stringify({lastRun,created,prospectsDiscovered:discovered,nationwideCandidates,mappedCandidates,websitesResearched:researched,growthLensAudits:audited,documentsScanned:documents.rows.length}));
+  console.info('Intelligence cycle completed',JSON.stringify({lastRun,created,prospectsDiscovered:discovered,nationwideCandidates,mappedCandidates,websitesResearched:researched,growthLensAudits:audited,documentsScanned:documents.rows.length,durationMs:Date.now()-cycleStarted}));
   return {enabled:true,created,prospectsDiscovered:discovered,nationwideCandidates,mappedCandidates,websitesResearched:researched,websiteResearchUnavailable:failedResearch,growthLensAudits:audited,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
- }catch(e){lastError=String(e.message||e).slice(0,180);console.error('Intelligence cycle failed',JSON.stringify({lastError,lastRun}));return {enabled:true,error:lastError,lastRun}}
+ }catch(e){lastError=String(e.message||e).slice(0,180);console.error('Intelligence cycle failed',JSON.stringify({lastError,lastRun,durationMs:Date.now()-cycleStarted}));return {enabled:true,error:lastError,lastRun}}
  finally{
   if(lockHeld&&lockClient)await lockClient.query('SELECT pg_advisory_unlock($1::bigint)',['482170041102']).catch(()=>{});
   if(lockClient)lockClient.release();
