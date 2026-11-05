@@ -2,10 +2,10 @@ name: Wake LeadFlow intelligence cycle
 on:
   schedule:
     # Run hourly at minute 30 UTC; :30 is also :30 Eastern across EST/EDT.
-    # First intended run after this change: 2026-11-05 02:30 UTC (Nov 4, 9:30 PM EST).
+    # Recurring schedule: every hour at :30 Eastern.
     - cron: '30 * * * *'
-    # One-time additional attempt: Nov 4 2026, 9:35 PM EST (Nov 5 02:35 UTC).
-    - cron: '35 2 * * *'
+    # One-time initial attempt: Nov 4 2026, 9:52 PM EST (Nov 5 02:52 UTC).
+    - cron: '52 2 * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,13 +19,13 @@ jobs:
     env:
       LEADFLOW_AUTOMATION_TOKEN: ${{ secrets.LEADFLOW_AUTOMATION_TOKEN }}
     steps:
-      - name: Skip one-time 9:35 PM trigger on all other dates
+      - name: Skip one-time 9:52 PM trigger on all other dates
         id: one_time_guard
         shell: bash
         run: |
-          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "${{ github.event.schedule }}" = "35 2 * * *" ] && [ "$(date -u +%F)" != "2026-11-05" ]; then
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "${{ github.event.schedule }}" = "52 2 * * *" ] && [ "$(date -u +%F)" != "2026-11-05" ]; then
             echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "One-time 9:35 PM Eastern trigger expired; skipping."
+            echo "One-time 9:52 PM Eastern trigger expired; skipping."
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
