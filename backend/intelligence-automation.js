@@ -1,3 +1,4 @@
+import {forwardForgeEvent} from './forge-events.js';
 import {randomUUID,createHash} from 'node:crypto';
 import {knowledgeAction} from './knowledge-base.js';
 const INTERVAL_MS=Number(process.env.INTELLIGENCE_ENGINE_INTERVAL_MS||900000);
@@ -77,7 +78,7 @@ export async function runIntelligenceCycle(){
   // One Growth Lens audit per cycle, limited to sites with verified accessible metadata.
   let audited=0,failedAudits=0;
   if(process.env.INTELLIGENCE_AUTO_AUDIT_ENABLED==='true'){
-   const auditBatch=await pool.query(`SELECT id,website FROM kb_prospect_candidates
+   const auditBatch=await pool.query(`SELECT id,website,business_name,niche FROM kb_prospect_candidates
     WHERE research_status='verified' AND website IS NOT NULL AND website<>''
       AND (audited_at IS NULL OR audited_at<now()-interval '30 days')
     ORDER BY (source='Wikidata nationwide verified catalog' AND audited_at IS NULL) DESC, audited_at ASC NULLS FIRST,discovered_at ASC LIMIT 1`);
@@ -88,7 +89,7 @@ export async function runIntelligenceCycle(){
     const verified=outcome?.status==='verified'&&typeof outcome.finding==='string';
     await pool.query('UPDATE kb_prospect_candidates SET audit_status=$2,audit_finding=$3,audited_at=now() WHERE id=$1',
       [candidate.id,verified?'verified':'unavailable',String(verified?outcome.finding:outcome?.reason||'No verified finding').slice(0,450)]);
-    if(verified)audited++;else failedAudits++;
+    if(verified){audited++;if(process.env.FORGE_AUTO_SYNC_CONSENT==='true'&&process.env.FORGE_AUTO_SYNC_TENANT_ID){try{await forwardForgeEvent({eventId:candidate.id,tenantId:process.env.FORGE_AUTO_SYNC_TENANT_ID,businessName:candidate.business_name,website:candidate.website,summary:String(outcome.finding||'').slice(0,3000),consent:true})}catch(e){console.warn('Forge opted-in sync unavailable',String(e.message||e).slice(0,120))}}}else failedAudits++;
    }
   }
   const documents=await pool.query(`SELECT d.id,d.title,d.content,d.collection
