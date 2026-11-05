@@ -1,5 +1,5 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {forwardForgeEvent} from '../backend/forge-events.js';
-test('Forge event connector requires server-side configuration',async()=>{await assert.rejects(forwardForgeEvent({consent:true,tenantId:'00000000-0000-4000-8000-000000000000',businessName:'Example'}),/not configured/)});
+test('Forge event connector requires server-side configuration',async()=>{const old=process.env.FORGE_EVENT_URL;delete process.env.FORGE_EVENT_URL;try{await assert.rejects(forwardForgeEvent({consent:true,tenantId:'00000000-0000-4000-8000-000000000000',businessName:'Example'}),/not configured/)}finally{if(old!==undefined)process.env.FORGE_EVENT_URL=old}});
 test('Forge event connector requires explicit consent',async()=>{const priorUrl=process.env.FORGE_EVENT_URL,priorSecret=process.env.FORGE_INTEGRATION_SECRET;process.env.FORGE_EVENT_URL='https://forge.example.test/events';process.env.FORGE_INTEGRATION_SECRET='a'.repeat(64);try{await assert.rejects(forwardForgeEvent({consent:false,tenantId:'00000000-0000-4000-8000-000000000000',businessName:'Example'}),/consent/)}finally{if(priorUrl===undefined)delete process.env.FORGE_EVENT_URL;else process.env.FORGE_EVENT_URL=priorUrl;if(priorSecret===undefined)delete process.env.FORGE_INTEGRATION_SECRET;else process.env.FORGE_INTEGRATION_SECRET=priorSecret}});
