@@ -191,19 +191,31 @@ export async function intelligenceAction(action,data={}){
   throw Error('Unknown intelligence action');
  }finally{await pool.end()}
 }
+export function millisecondsUntilNextHalfHour(now=Date.now()){
+ const date=new Date(now);
+ const next=Date.UTC(date.getUTCFullYear(),date.getUTCMonth(),date.getUTCDate(),date.getUTCHours(),30,0,0);
+ return (next>now?next:next+3600000)-now;
+}
 export function startIntelligenceScheduler(){
  if(!enabled())return;
- const interval=Math.max(60000,Math.min(86400000,INTERVAL_MS||900000));
- // In-process scheduling is a fallback. GitHub Actions also wakes free Render instances.
- // The database advisory lock ensures both triggers cannot process concurrently.
+ // GitHub Actions provides a second wake source. The shared Postgres advisory lock
+ // prevents concurrent duplicate processing across scheduler sources/instances.
  const fallbackWake=origin=>{
-  console.info('LeadFlow independent scheduler wake',JSON.stringify({origin,intervalMinutes:Math.round(interval/60000),at:new Date().toISOString()}));
+  console.info('LeadFlow independent scheduler wake',JSON.stringify({origin,at:new Date().toISOString()}));
   void runIntelligenceCycle().then(result=>{
    console.info('LeadFlow independent scheduler result',JSON.stringify({origin,enabled:result.enabled,lastRun:result.lastRun||null,error:result.error||null,running:result.running||false}));
   }).catch(error=>console.error('LeadFlow independent scheduler failed',String(error?.message||error)));
  };
- // Independent in-process fallback: runs even when GitHub's cron is delayed or skipped.
- // GitHub and this scheduler share the database advisory lock to prevent duplicate work.
+ const armNext=()=>{
+  const delay=millisecondsUntilNextHalfHour();
+  console.info('LeadFlow next independent scheduled wake',JSON.stringify({at:new Date(Date.now()+delay).toISOString(),delayMs:delay}));
+  setTimeout(()=>{
+   fallbackWake('hourly-half-past');
+   armNext();
+  },delay).unref();
+ };
+ // Retain startup processing, then align every subsequent wake to the :30 UTC
+ // wall clock (also :30 Eastern throughout EST and EDT).
  setTimeout(()=>fallbackWake('startup'),12000).unref();
- setInterval(()=>fallbackWake('interval'),interval).unref();
+ armNext();
 }
