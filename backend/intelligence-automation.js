@@ -196,6 +196,14 @@ export function startIntelligenceScheduler(){
  const interval=Math.max(60000,Math.min(86400000,INTERVAL_MS||900000));
  // In-process scheduling is a fallback. GitHub Actions also wakes free Render instances.
  // The database advisory lock ensures both triggers cannot process concurrently.
- setTimeout(()=>{void runIntelligenceCycle()},12000).unref();
- setInterval(()=>{void runIntelligenceCycle()},interval).unref();
+ const fallbackWake=origin=>{
+  console.info('LeadFlow independent scheduler wake',JSON.stringify({origin,intervalMinutes:Math.round(interval/60000),at:new Date().toISOString()}));
+  void runIntelligenceCycle().then(result=>{
+   console.info('LeadFlow independent scheduler result',JSON.stringify({origin,enabled:result.enabled,lastRun:result.lastRun||null,error:result.error||null,running:result.running||false}));
+  }).catch(error=>console.error('LeadFlow independent scheduler failed',String(error?.message||error)));
+ };
+ // Independent in-process fallback: runs even when GitHub's cron is delayed or skipped.
+ // GitHub and this scheduler share the database advisory lock to prevent duplicate work.
+ setTimeout(()=>fallbackWake('startup'),12000).unref();
+ setInterval(()=>fallbackWake('interval'),interval).unref();
 }
