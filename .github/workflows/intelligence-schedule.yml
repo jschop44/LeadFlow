@@ -1,11 +1,10 @@
 name: Wake LeadFlow intelligence cycle
 on:
+  # GitHub-only redundancy: two staggered attempts each hour.
+  # Scheduled runs are best-effort; the second slot mitigates dropped triggers.
   schedule:
-    # Run hourly at minute 30 UTC; :30 is also :30 Eastern across EST/EDT.
-    # Recurring schedule: every hour at :30 Eastern.
     - cron: '30 * * * *'
-    # One-time initial attempt: Nov 4 2026, 9:52 PM EST (Nov 5 02:52 UTC).
-    - cron: '52 2 * * *'
+    - cron: '43 * * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -19,23 +18,13 @@ jobs:
     env:
       LEADFLOW_AUTOMATION_TOKEN: ${{ secrets.LEADFLOW_AUTOMATION_TOKEN }}
     steps:
-      - name: Skip one-time 9:52 PM trigger on all other dates
-        id: one_time_guard
-        shell: bash
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "${{ github.event.schedule }}" = "52 2 * * *" ] && [ "$(date -u +%F)" != "2026-11-05" ]; then
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "One-time 9:52 PM Eastern trigger expired; skipping."
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
       - name: Require private automation token
-        if: steps.one_time_guard.outputs.run == 'true' && env.LEADFLOW_AUTOMATION_TOKEN == ''
+        if: env.LEADFLOW_AUTOMATION_TOKEN == ''
         run: |
           echo '::error::Manual setup required: add LEADFLOW_AUTOMATION_TOKEN as a GitHub Actions repository secret.'
           exit 1
       - name: Trigger bounded intelligence cycle
-        if: steps.one_time_guard.outputs.run == 'true' && env.LEADFLOW_AUTOMATION_TOKEN != ''
+        if: env.LEADFLOW_AUTOMATION_TOKEN != ''
         shell: bash
         run: |
           response=$(curl --fail-with-body --silent --show-error \
