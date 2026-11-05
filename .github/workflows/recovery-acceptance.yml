@@ -27,7 +27,8 @@ jobs:
             exit 1
           fi
           node -e "const u=new URL(process.env.DATABASE_URL); if(u.hostname!=='ep-summer-sun-b8z5lyht-pooler.c-14.us-east-1.aws.neon.tech')throw Error('Recovery target must be the exact isolated restored branch'); console.log('Recovery database host validated')"
-      - run: npm ci --omit=dev
+      - name: Install backend dependencies without requiring a lockfile
+        run: npm install --omit=dev --no-audit --no-fund
       - name: Boot real LeadFlow backend against restored branch and verify
         run: node tests/recovery-app-smoke.mjs
       - name: Publish recovery acceptance evidence
