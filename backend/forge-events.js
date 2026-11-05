@@ -5,7 +5,7 @@ export async function forwardForgeEvent(input){
  if(input.consent!==true)throw Error('Explicit business data sharing consent is required');
  const tenantId=String(input.tenantId||''),businessName=String(input.businessName||'').trim();
  if(!/^[0-9a-f-]{36}$/i.test(tenantId)||businessName.length<2||businessName.length>120)throw Error('Invalid tenant or business');
- const event={eventId:randomUUID(),tenantId,source:'leadflow',businessName,consent:true};
+ const event={eventId:/^[0-9a-f-]{36}$/i.test(String(input.eventId||''))?String(input.eventId):randomUUID(),tenantId,source:'leadflow',businessName,consent:true};
  if(input.website)event.website=String(input.website).slice(0,2048);
  if(input.summary)event.summary=String(input.summary).slice(0,3000);
  const raw=JSON.stringify(event),timestamp=String(Date.now()),signature=createHmac('sha256',secret).update(timestamp+'.'+raw).digest('hex');
