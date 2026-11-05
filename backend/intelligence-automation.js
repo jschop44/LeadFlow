@@ -128,7 +128,9 @@ export async function intelligenceAction(action,data={}){
     count(*) FILTER(WHERE research_status='verified')::int AS researched,
     count(*) FILTER(WHERE audit_status='verified')::int AS audited,
     count(*) FILTER(WHERE research_status='unavailable')::int AS unavailable,
-    count(*) FILTER(WHERE website IS NOT NULL AND website<>'')::int AS with_website
+    count(*) FILTER(WHERE website IS NOT NULL AND website<>'')::int AS with_website,
+    count(*) FILTER(WHERE source='Wikidata nationwide verified catalog')::int AS nationwide,
+    count(*) FILTER(WHERE source='OpenStreetMap indexed snapshot')::int AS mapped
     FROM kb_prospect_candidates`);
    const q=await pool.query("SELECT count(*)::int AS pending FROM kb_intelligence_tasks WHERE status='pending_review'");
    return {enabled:true,prospects:r.rows[0],suggestionsPending:q.rows[0].pending,lastRun,lastError,automaticOutreach:false};
@@ -137,7 +139,7 @@ export async function intelligenceAction(action,data={}){
    const status=String(data.status||'pending_review');
    if(!['pending_review','approved','dismissed'].includes(status))throw Error('Invalid prospect status');
    const r=await pool.query('SELECT id,business_name,website,city,niche,source,status,discovered_at,research_status,research_summary,researched_at,audit_status,audit_finding,audited_at FROM kb_prospect_candidates WHERE status=$1 ORDER BY discovered_at DESC LIMIT 100',[status]);
-   return {prospects:r.rows,source:'indexed OpenStreetMap snapshot',requiresHumanReview:true};
+   return {prospects:r.rows,source:'verified nationwide catalog and mapped business index',requiresHumanReview:true};
   }
   if(action==='prospect-brief'){
    const id=String(data.prospectId||'');
