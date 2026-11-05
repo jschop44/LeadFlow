@@ -4,6 +4,8 @@ on:
     # Run hourly at minute 30 UTC; :30 is also :30 Eastern across EST/EDT.
     # First intended run after this change: 2026-11-05 02:30 UTC (Nov 4, 9:30 PM EST).
     - cron: '30 * * * *'
+    # One-time additional attempt: Nov 4 2026, 9:35 PM EST (Nov 5 02:35 UTC).
+    - cron: '35 2 * * *'
   workflow_dispatch:
 permissions:
   contents: read
@@ -17,13 +19,23 @@ jobs:
     env:
       LEADFLOW_AUTOMATION_TOKEN: ${{ secrets.LEADFLOW_AUTOMATION_TOKEN }}
     steps:
+      - name: Skip one-time 9:35 PM trigger on all other dates
+        id: one_time_guard
+        shell: bash
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "${{ github.event.schedule }}" = "35 2 * * *" ] && [ "$(date -u +%F)" != "2026-11-05" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "One-time 9:35 PM Eastern trigger expired; skipping."
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Require private automation token
-        if: env.LEADFLOW_AUTOMATION_TOKEN == ''
+        if: steps.one_time_guard.outputs.run == 'true' && env.LEADFLOW_AUTOMATION_TOKEN == ''
         run: |
           echo '::error::Manual setup required: add LEADFLOW_AUTOMATION_TOKEN as a GitHub Actions repository secret.'
           exit 1
       - name: Trigger bounded intelligence cycle
-        if: env.LEADFLOW_AUTOMATION_TOKEN != ''
+        if: steps.one_time_guard.outputs.run == 'true' && env.LEADFLOW_AUTOMATION_TOKEN != ''
         shell: bash
         run: |
           response=$(curl --fail-with-body --silent --show-error \
@@ -34,13 +46,13 @@ jobs:
             --data '{"action":"run","trigger":"${{ github.event_name }}","workflowRunId":"${{ github.run_id }}"}')
           printf '%s' "$response" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("enabled") is True and not r.get("error"), "Intelligence cycle disabled or failed: " + str({k:v for k,v in r.items() if k not in ("token","secret")}); print("Intelligence cycle accepted:", {k:r.get(k) for k in ("lastRun","created","prospectsDiscovered","websitesResearched","growthLensAudits","skipped")})'
       - name: Record authenticated wake evidence
-        if: success()
+        if: success() && steps.one_time_guard.outputs.run == 'true'
         shell: bash
         run: |
           printf 'event=%s run_id=%s commit=%s workflow=%s\n' "$GITHUB_EVENT_NAME" "$GITHUB_RUN_ID" "$GITHUB_SHA" "$GITHUB_WORKFLOW" | tee schedule-wake-evidence.txt
           cat schedule-wake-evidence.txt >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
-        if: success()
+        if: success() && steps.one_time_guard.outputs.run == 'true'
         with:
           name: schedule-wake-evidence
           path: schedule-wake-evidence.txt
