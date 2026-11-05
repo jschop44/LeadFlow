@@ -26,7 +26,8 @@ export async function runIntelligenceCycle(){
   // Lock connection is separate from the worker pool so queries cannot deadlock.
   lockPool=await db();
   lockClient=await lockPool.connect();
-  const lock=await lockClient.query('SELECT pg_try_advisory_lock($1::bigint) AS acquired',['482170041102']);
+  await lockClient.query('BEGIN');
+  const lock=await lockClient.query('SELECT pg_try_advisory_xact_lock($1::bigint) AS acquired',['482170041103']);
   if(!lock.rows[0]?.acquired){console.info('Intelligence cycle skipped',JSON.stringify({reason:'database advisory lock held'}));return {enabled:true,skipped:true,reason:'Another intelligence cycle holds the database lock',lastRun}}
   lockHeld=true;
   pool=await db();
@@ -109,7 +110,7 @@ export async function runIntelligenceCycle(){
   return {enabled:true,created,prospectsDiscovered:discovered,nationwideCandidates,mappedCandidates,websitesResearched:researched,websiteResearchUnavailable:failedResearch,growthLensAudits:audited,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
  }catch(e){lastError=String(e.message||e).slice(0,180);console.error('Intelligence cycle failed',JSON.stringify({lastError,lastRun,durationMs:Date.now()-cycleStarted}));return {enabled:true,error:lastError,lastRun}}
  finally{
-  if(lockHeld&&lockClient)await lockClient.query('SELECT pg_advisory_unlock($1::bigint)',['482170041102']).catch(()=>{});
+  if(lockClient)await lockClient.query('ROLLBACK').catch(()=>{});
   if(lockClient)lockClient.release();
   if(lockPool)await lockPool.end().catch(()=>{});
   if(pool)await pool.end().catch(()=>{});
