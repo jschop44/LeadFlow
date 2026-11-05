@@ -62,7 +62,7 @@ export async function runIntelligenceCycle(){
   // Research a small, bounded batch. A failed website never blocks other candidates.
   const researchBatch=await pool.query(`SELECT id,website FROM kb_prospect_candidates
     WHERE website IS NOT NULL AND website<>'' AND (researched_at IS NULL OR researched_at<now()-interval '7 days')
-    ORDER BY researched_at ASC NULLS FIRST,discovered_at ASC LIMIT 3`);
+    ORDER BY (source='Wikidata nationwide verified catalog' AND researched_at IS NULL) DESC, researched_at ASC NULLS FIRST,discovered_at ASC LIMIT 3`);
   let researched=0,failedResearch=0;
   for(const candidate of researchBatch.rows){
    let result;
