@@ -46,12 +46,14 @@ export async function runIntelligenceCycle(){
   await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS audit_status text NOT NULL DEFAULT 'pending'`);
   await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS audit_finding text`);
   await pool.query(`ALTER TABLE kb_prospect_candidates ADD COLUMN IF NOT EXISTS audited_at timestamptz`);
-  let discovered=0;
+  let discovered=0, nationwideCandidates=0, mappedCandidates=0;
   const candidates=await Promise.resolve(prospectProvider());
   for(const candidate of (Array.isArray(candidates)?candidates:[]).slice(0,100)){
    const name=String(candidate.name||'').trim().slice(0,180);
    const key=String(candidate.key||'').trim().slice(0,300);
    if(!name||!key)continue;
+   if(candidate.source==='Wikidata nationwide verified catalog')nationwideCandidates++;
+   if(candidate.source==='OpenStreetMap indexed snapshot')mappedCandidates++;
    const result=await pool.query(`INSERT INTO kb_prospect_candidates(id,source_key,business_name,website,city,niche,source)
      VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(source_key) DO NOTHING RETURNING id`,
      [randomUUID(),key,name,String(candidate.website||'').slice(0,300)||null,String(candidate.city||'').slice(0,120)||null,String(candidate.niche||'').slice(0,120)||null,String(candidate.source||'OpenStreetMap indexed snapshot').slice(0,100)]);
@@ -103,8 +105,8 @@ export async function runIntelligenceCycle(){
    }
   }
   lastRun=new Date().toISOString();lastError=null;lastCount=created+discovered;
-  console.info('Intelligence cycle completed',JSON.stringify({lastRun,created,prospectsDiscovered:discovered,websitesResearched:researched,growthLensAudits:audited,documentsScanned:documents.rows.length}));
-  return {enabled:true,created,prospectsDiscovered:discovered,websitesResearched:researched,websiteResearchUnavailable:failedResearch,growthLensAudits:audited,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
+  console.info('Intelligence cycle completed',JSON.stringify({lastRun,created,prospectsDiscovered:discovered,nationwideCandidates,mappedCandidates,websitesResearched:researched,growthLensAudits:audited,documentsScanned:documents.rows.length}));
+  return {enabled:true,created,prospectsDiscovered:discovered,nationwideCandidates,mappedCandidates,websitesResearched:researched,websiteResearchUnavailable:failedResearch,growthLensAudits:audited,documentsScanned:documents.rows.length,lastRun,requiresHumanReview:true,automaticOutreach:false};
  }catch(e){lastError=String(e.message||e).slice(0,180);console.error('Intelligence cycle failed',JSON.stringify({lastError,lastRun}));return {enabled:true,error:lastError,lastRun}}
  finally{
   if(lockHeld&&lockClient)await lockClient.query('SELECT pg_advisory_unlock($1::bigint)',['482170041102']).catch(()=>{});
