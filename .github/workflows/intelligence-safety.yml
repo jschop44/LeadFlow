@@ -2,12 +2,14 @@ name: Intelligence automation safety tests
 on:
   push:
     branches:
+      - main
       - hardening/automation-verification-20261104
   pull_request:
     paths:
       - 'backend/intelligence-automation.js'
       - 'backend/server.js'
       - 'tests/intelligence-automation.flags.test.mjs'
+      - 'tests/nationwide-discovery.test.mjs'
       - 'package.json'
       - '.github/workflows/intelligence-safety.yml'
   workflow_dispatch:
@@ -25,3 +27,4 @@ jobs:
       - run: node --check backend/server.js
       - run: node --check backend/intelligence-automation.js
       - run: npm run test:intelligence-flags
+      - run: node --test tests/nationwide-discovery.test.mjs
