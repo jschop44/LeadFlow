@@ -21,3 +21,15 @@
 - Confirm a GitHub Actions run with event `schedule`, successful job conclusion, and backend `Intelligence cycle completed` near its execution time.
 - Verify a second successful cycle after the first without advisory-lock skips; audit statuses must reflect actual evidence, not fabricated findings.
 - Production snapshot and app cutover drill remain separately required for full disaster-recovery certification.
+
+## Recovery drill evidence (2026-11-05 01:02 UTC)
+- Named production snapshot `snap-fragrant-hall-b8eggcpm` was created.
+- Snapshot restore generated branch `br-calm-dust-b8bwj6zk`, now named `snapshot-restore-drill-2026-11-05`.
+- **Important:** Neon's restore action automatically finalized and temporarily changed the default branch and names. The original branch `br-green-union-b8v06iyf` was immediately reset as the default and renamed `production`. A subsequent independent read confirmed the original branch is the default, and both original and restored branches contain 280 prospects.
+- Isolated recovery branch `br-dark-mode-b82r4iaj` passed a temporary-table write/read transaction using three recovered nationwide prospect records; temporary data was dropped on commit.
+- Future recovery exercises must use explicit non-finalizing restore options and confirm default-branch identity before and after. Do not run automatic production cutovers for drills.
+- Application-level connection against a restored branch remains untested; do not represent the drill as a complete application cutover.
+
+## Scheduled-run observability
+- GitHub Actions workflow now includes the event type and run ID in the authenticated request body. The backend logs the validated event type and run ID without tokens.
+- A scheduled wake is proven only by a production log line `Authenticated automation wake` with `trigger=schedule`, a numeric run ID, and a corresponding successful intelligence cycle. A manual wake or startup cycle is not equivalent.
