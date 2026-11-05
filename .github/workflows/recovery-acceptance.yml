@@ -1,0 +1,30 @@
+name: Verify isolated LeadFlow recovery
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  recovery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      DATABASE_URL: ${{ secrets.LEADFLOW_RECOVERY_DATABASE_URL }}
+      RECOVERY_DRILL_CONFIRMED: 'yes'
+      INTELLIGENCE_ENGINE_ENABLED: 'false'
+      KNOWLEDGE_BASE_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Require isolated recovery connection
+        shell: bash
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo '::error::Set LEADFLOW_RECOVERY_DATABASE_URL to the restored branch connection string, never the production branch.'
+            exit 1
+          fi
+          node -e "const u=new URL(process.env.DATABASE_URL); if(!u.hostname.endsWith('.neon.tech'))throw Error('Recovery target must be Neon'); console.log('Recovery database host validated')"
+      - run: npm ci --omit=dev
+      - name: Boot real LeadFlow backend against restored branch and verify
+        run: node tests/recovery-app-smoke.mjs
