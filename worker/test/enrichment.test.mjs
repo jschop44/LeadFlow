@@ -1,8 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFile} from 'node:fs/promises';
-const source=await readFile(new URL('../src/index.js',import.meta.url),'utf8');
-const {default:worker}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));
+import worker from '../src/index.js';
 const originalFetch=globalThis.fetch;
 async function run(website,handler){globalThis.fetch=handler;try{return await worker.fetch(new Request('https://worker.test/',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({website})}))}finally{globalThis.fetch=originalFetch}}
 test('rejects localhost and numeric IP destinations',async()=>{for(const website of ['http://localhost','http://127.0.0.1','http://169.254.169.254','file:///etc/passwd']){const r=await run(website,()=>{throw Error('Unexpected fetch')});assert.equal(r.status,400)}});
