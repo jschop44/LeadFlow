@@ -25,7 +25,9 @@ jobs:
         with:
           node-version: '22'
       - name: Install open-source document parsers
-        run: npm install --ignore-scripts --no-audit --no-fund
+        run: npm ci --ignore-scripts --no-audit --no-fund
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=moderate
       - name: Install PDF fixture generator
         run: python3 -m pip install --quiet reportlab
       - name: Build small real PDF and DOCX extraction fixtures
