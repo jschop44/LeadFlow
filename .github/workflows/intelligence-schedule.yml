@@ -1,10 +1,15 @@
 name: Wake LeadFlow intelligence cycle
 on:
-  # One-time first attempt at 10:16 PM EST on Nov 4, 2026 (03:16 UTC Nov 5).
-  # GitHub scheduled triggers are best-effort and may run late or be skipped.
   schedule:
-    - cron: '16 3 * * *'
+    # UTC and Eastern both run at :30. GitHub schedules remain best effort.
+    - cron: '30 * * * *'
   workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/intelligence-schedule.yml'
+      - 'scripts/wake-intelligence.mjs'
+      - 'tests/intelligence-wake.test.mjs'
 permissions:
   contents: read
 concurrency:
@@ -13,44 +18,23 @@ concurrency:
 jobs:
   wake:
     runs-on: ubuntu-latest
-    timeout-minutes: 3
-    env:
-      LEADFLOW_AUTOMATION_TOKEN: ${{ secrets.LEADFLOW_AUTOMATION_TOKEN }}
+    timeout-minutes: 4
     steps:
-      - name: Limit scheduled trigger to Nov 5 2026 UTC
-        id: date_guard
-        shell: bash
-        run: |
-          if [ "$GITHUB_EVENT_NAME" = "schedule" ] && [ "$(date -u +%F)" != "2026-11-05" ]; then
-            echo "run=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "run=true" >> "$GITHUB_OUTPUT"
-          fi
-      - name: Require private automation token
-        if: steps.date_guard.outputs.run == 'true' && env.LEADFLOW_AUTOMATION_TOKEN == ''
-        run: |
-          echo '::error::Manual setup required: add LEADFLOW_AUTOMATION_TOKEN as a GitHub Actions repository secret.'
-          exit 1
-      - name: Trigger bounded intelligence cycle
-        if: steps.date_guard.outputs.run == 'true' && env.LEADFLOW_AUTOMATION_TOKEN != ''
-        shell: bash
-        run: |
-          response=$(curl --fail-with-body --silent --show-error \
-            --retry 2 --retry-delay 10 --max-time 100 \
-            --request POST 'https://leadflow-research-api.onrender.com/automation' \
-            --header 'Content-Type: application/json' \
-            --header "X-LeadFlow-Token: ${LEADFLOW_AUTOMATION_TOKEN}" \
-            --data '{"action":"run","trigger":"${{ github.event_name }}","workflowRunId":"${{ github.run_id }}"}')
-          printf '%s' "$response" | python3 -c 'import json,sys; r=json.load(sys.stdin); assert r.get("enabled") is True and not r.get("error"), "Intelligence cycle disabled or failed: " + str({k:v for k,v in r.items() if k not in ("token","secret")}); print("Intelligence cycle accepted:", {k:r.get(k) for k in ("lastRun","created","prospectsDiscovered","websitesResearched","growthLensAudits","skipped")})'
-      - name: Record authenticated wake evidence
-        if: success() && steps.date_guard.outputs.run == 'true'
-        shell: bash
-        run: |
-          printf 'event=%s run_id=%s commit=%s workflow=%s\n' "$GITHUB_EVENT_NAME" "$GITHUB_RUN_ID" "$GITHUB_SHA" "$GITHUB_WORKFLOW" | tee schedule-wake-evidence.txt
-          cat schedule-wake-evidence.txt >> "$GITHUB_STEP_SUMMARY"
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify wake evidence rules
+        run: node --test tests/intelligence-wake.test.mjs
+      - name: Execute authenticated intelligence cycle
+        env:
+          LEADFLOW_AUTOMATION_TOKEN: ${{ secrets.LEADFLOW_AUTOMATION_TOKEN }}
+        run: node scripts/wake-intelligence.mjs
+      - name: Record verified outcome
+        run: cat schedule-wake-evidence.json >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
-        if: success() && steps.one_time_guard.outputs.run == 'true'
         with:
           name: schedule-wake-evidence
-          path: schedule-wake-evidence.txt
+          path: schedule-wake-evidence.json
+          if-no-files-found: error
           retention-days: 14
