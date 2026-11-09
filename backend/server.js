@@ -9,7 +9,7 @@ import http from 'node:http';
 import {createCatalogStore} from './catalog-store.js';
 import {createSearchHistory} from './search-history.js';
 import {wikidataLeadership} from './wikidata-leadership.js';
-import {growthLensAudit,auditOpportunity,personalizedDraft} from './growthlens-outreach.js';
+import {growthLensAudit,auditOpportunity,personalizedDraft,createAuditCache} from './growthlens-outreach.js';
 import dns from 'node:dns/promises';
 import net from 'node:net';
 import {randomUUID} from 'node:crypto';
@@ -40,7 +40,7 @@ configureResearchProvider(async website=>{
 });
 configureAuditProvider(async website=>{
  const target=await validate(website);
- const audit=await growthLensAudit(target.origin);
+ const audit=await cachedGrowthLensAudit(target.origin);
  if(audit.status&&audit.status!=='completed')return {status:'unavailable',reason:'Growth Lens audit is not completed'};
  const finding=auditOpportunity(audit,'website improvements');
  if(!finding.verified)return {status:'unavailable',reason:'No verified actionable audit finding'};
@@ -83,6 +83,7 @@ async function sharedOpportunityRanking(website,findings,platform,businessType){
  if(!response.ok)throw Error('Scoring service HTTP '+response.status);
  return response.json();
 }
+const cachedGrowthLensAudit=createAuditCache(growthLensAudit);
 async function smartDraft(data){
  const business=String(data.business||'').trim(),service=String(data.service||'').trim();
  if(!business||!service||!data.sender||!data.unsubscribe)throw Error('Business, service, sender and opt-out instructions required');
@@ -91,7 +92,7 @@ async function smartDraft(data){
  if(data.website){
   const target=await validate(data.website);
   try{
-   const audit=await growthLensAudit(target.origin);
+   const audit=await cachedGrowthLensAudit(target.origin);
    auditStatus=audit.status||'completed';
    if(auditStatus==='completed'){
     opportunity=auditOpportunity(audit,service);

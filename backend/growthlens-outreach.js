@@ -8,24 +8,34 @@ const ideas=[
  ['meta_description','improve how your services appear in search results','a clear page description can better communicate your offer'],
  ['structured_data','clarify business details for search engines','relevant structured data can help search engines understand your services'],
  ['trust','make customer confidence signals easier to find','visible trust signals may help visitors feel more confident'],
+ ['conversion_cta','make the next step more prominent','a clear call to action can guide visitors toward the right service'],
+ ['image_dimensions','reserve space for images as they load','stable image layouts can reduce content movement'],
+ ['mixed_content','secure embedded website resources','HTTPS resource links can avoid blocked content'],
+ ['accessible_links','give website links clear accessible names','clear link names help visitors navigate with assistive technology'],
  ['faq','answer common questions before a customer reaches out','a concise FAQ can reduce uncertainty and repetitive inquiries']
 ];
 export function auditOpportunity(audit,service){
  const findings=Array.isArray(audit?.findings)?audit.findings:[];
+ if(typeof audit?.url!=='string'||!/^https?:\/\//i.test(audit.url))return {verified:false,reason:'Audit source URL unavailable'};
  const failures=findings.filter(x=>x&&x.passed===false&&typeof x.id==='string');
- const selected=ideas.map(([id,action,reason])=>({id,action,reason,finding:failures.find(f=>f.id===id||f.id.includes(id))})).find(x=>x.finding);
+ const selected=ideas.map(([id,action,reason])=>({id,action,reason,finding:failures.find(f=>f.id===id)})).find(x=>x.finding);
  if(!selected)return {verified:false,reason:'No relevant verified audit finding available',score:typeof audit?.score==='number'?audit.score:null};
- return {verified:true,id:selected.id,action:selected.action,reason:selected.reason,finding:selected.finding.name||selected.id,source:audit.url||null,score:typeof audit.score==='number'?audit.score:null,service:String(service||'').trim()};
+ return {verified:true,id:selected.id,action:selected.action,reason:selected.reason,finding:selected.finding.name||selected.id,source:audit.url||null,score:typeof audit.score==='number'?audit.score:null,service:String(service||'').trim(),recommendation:String(selected.finding.recommendation||'').slice(0,350),evidenceMethod:selected.finding.evidence?.method||'single_page_audit',contextDependent:/context dependent/i.test(selected.finding.category||'')};
 }
-export function personalizedDraft({business,contact,service,sender,unsubscribe},opportunity){
+export function personalizedDraft({business,contact,service,sender,unsubscribe,niche,location},opportunity){
  if(!business||!service||!sender||!unsubscribe)throw Error('Business, offer, sender and opt-out instructions required');
- const name=String(contact||'').trim()||'there';
+ const clean=(value,max=300)=>String(value||'').replace(/[\u0000-\u001f\u007f]/g,' ').trim().slice(0,max);
+ business=clean(business,160);service=clean(service,500);sender=clean(sender,500);unsubscribe=clean(unsubscribe,300);
+ const name=clean(contact,80)||'there';
+ const context=[clean(niche,100),clean(location,140)].filter(Boolean).join(' in ');
+ const contextLine=context?' Your '+context+' business caught my attention.':'';
  const subject='A website idea for '+business;
  const paragraph=opportunity?.verified
-  ?'I reviewed the publicly accessible website for '+business+' and noticed an opportunity around '+opportunity.finding.toLowerCase()+'. One possible improvement is to '+opportunity.action+'. '+opportunity.reason.charAt(0).toUpperCase()+opportunity.reason.slice(1)+'.'
+  ?'I reviewed the publicly accessible website for '+business+' and noticed an opportunity around '+opportunity.finding.toLowerCase()+'. One possible improvement is to '+opportunity.action+'. '+opportunity.reason.charAt(0).toUpperCase()+opportunity.reason.slice(1)+'.'+(opportunity.recommendation?' Suggested next step: '+clean(opportunity.recommendation,350):'')
   :'I came across '+business+' and wanted to share a possible website improvement idea. I have not verified a specific issue with your website.';
- const body='Hi '+name+',\n\n'+paragraph+'\n\nI offer '+service+'. If useful, I can share a brief, practical suggestion tailored to your business. Would you be open to that?\n\n'+sender+'\n\nTo opt out: '+unsubscribe;
- return {subject,text:body,opportunity:opportunity||{verified:false},status:'draft_only',sendingEnabled:false};
+ const body='Hi '+name+',\n\n'+paragraph+contextLine+'\n\nI offer '+service+'. If useful, I can share a brief, practical suggestion tailored to your business. Would you be open to that?\n\n'+sender+'\n\nTo opt out: '+unsubscribe;
+ const socialText='Hi '+name+', I came across '+business+(context?' ('+context+')':'')+'. '+(opportunity?.verified?'I reviewed your website and noticed an opportunity to '+opportunity.action+'. '+(opportunity.recommendation?'A practical next step: '+clean(opportunity.recommendation,200)+' ':''):'')+'I offer '+service+'. Would a brief suggestion be useful? — '+sender+'. Opt out: '+unsubscribe;
+ return {subject,text:body,socialText,opportunity:opportunity||{verified:false},status:'draft_only',sendingEnabled:false};
 }
 export async function growthLensAudit(website){
  const base=(process.env.GROWTHLENS_API_URL||FALLBACK).replace(/\/+$/,'');
@@ -35,4 +45,23 @@ export async function growthLensAudit(website){
  const response=await fetch(base+'/api/audits',{method:'POST',headers:{'content-type':'application/json','X-GrowthLens-Key':secret},body:JSON.stringify({url:website}),signal:AbortSignal.timeout(55000)});
  if(!response.ok)throw Error('Growth Lens audit unavailable (HTTP '+response.status+')');
  return response.json();
+}
+
+// Coalesce email/DM draft audits and keep both concurrency and residency bounded.
+export function createAuditCache(load,{ttlMs=600000,maxEntries=100,now=Date.now}={}){
+ const cache=new Map(),pending=new Map();
+ return async website=>{
+  const key=new URL(website).origin;
+  const hit=cache.get(key);if(hit&&hit.expires>now())return hit.value;
+  if(pending.has(key))return pending.get(key);
+  if(pending.size>=10)throw Error('Audit capacity is busy; try again shortly');
+  const work=Promise.resolve().then(()=>load(key)).then(value=>{
+   if(value?.status==='completed'){
+    cache.delete(key);cache.set(key,{value,expires:now()+ttlMs});
+    while(cache.size>maxEntries)cache.delete(cache.keys().next().value);
+   }
+   return value;
+  }).finally(()=>pending.delete(key));
+  pending.set(key,work);return work;
+ };
 }

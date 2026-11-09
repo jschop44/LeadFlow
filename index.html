@@ -190,7 +190,7 @@ function updateSocialDestinations(){
  $('make-social').disabled=!profiles.length;
 }
 
-function renderOutreachDraft(mode,data,opportunity,analysisStatus){
+function renderOutreachDraft(mode,data,opportunity,analysisStatus,serverDraft){
  lastDraftMode=mode;
  const offer=data.service||'website improvements and digital growth';
  const first=data.contact||'there';
@@ -205,6 +205,7 @@ function renderOutreachDraft(mode,data,opportunity,analysisStatus){
   lastDraft='SUBJECT: A website idea for '+businessLabel+'\n\nHi '+first+',\n\nI was looking at '+businessLabel+' and wanted to share a quick idea. '+detail+'My work focuses on '+offer+', and I would be happy to share a practical suggestion tailored to your business.\n\nWould you be open to a brief conversation?\n\n'+(data.sender||'[Your name and business contact information]')+'\n\nTo opt out: '+(data.unsubscribe||'Reply unsubscribe');
   lastSocialUrl=socialProfile(selectedDraftLead);updateSocialDestinations();
  }
+ if(serverDraft)lastDraft=mode==='social'?serverDraft.socialText||lastDraft:'SUBJECT: '+serverDraft.subject+'\n\n'+serverDraft.text;
  $('draft-output').value=lastDraft;
  $('draft-output').setAttribute('aria-label','Editable outreach message');
  $('compose-email').disabled=false;emailConnectionUI();$('compose-social').disabled=mode!=='social'||!socialProfile(selectedDraftLead);
@@ -213,7 +214,7 @@ function renderOutreachDraft(mode,data,opportunity,analysisStatus){
 async function createSmartDraft(mode){
  const lead=selectedDraftLead;
  if(!lead){$('outreach-note').textContent='Select Draft outreach next to a business first.';return}
- const data={business:lead.name,contact:(lead.owner||lead.enrichedPeople?.[0]?.name||'').split(' ')[0],website:lead.website,service:$('out-service').value.trim(),sender:$('out-sender').value.trim(),unsubscribe:$('out-optout').value.trim()};
+ const data={business:lead.name,niche:lead.niche,location:lead.address,contact:(lead.owner||lead.enrichedPeople?.[0]?.name||'').split(' ')[0],website:lead.website,service:$('out-service').value.trim(),sender:$('out-sender').value.trim(),unsubscribe:$('out-optout').value.trim()};
  const generation=++draftGeneration;
  try{renderOutreachDraft(mode,data,null,'loading')}catch(e){$('outreach-note').textContent='Draft error: '+e.message;return}
  const btn=$(mode==='social'?'make-social':'make-draft');btn.disabled=true;
@@ -223,7 +224,7 @@ async function createSmartDraft(mode){
   const response=await fetch(api.origin+'/smart-draft',{method:'POST',headers:{'content-type':'application/json',...($('api-token').value?{'x-leadflow-token':$('api-token').value}:{})},body:JSON.stringify({...data,service:data.service||'website improvements and digital growth',sender:data.sender||'Sender details to be added before sending',unsubscribe:data.unsubscribe||'Reply unsubscribe'}),signal:AbortSignal.timeout(65000)});
   const result=await response.json();if(!response.ok)throw Error(result.error||'Analysis failed');
   if(generation!==draftGeneration)return;
-  renderOutreachDraft(mode,data,result.opportunity,result.opportunity?.verified?'verified':'unavailable');
+  renderOutreachDraft(mode,data,result.opportunity,result.opportunity?.verified?'verified':'unavailable',result);
  }catch(e){if(generation===draftGeneration){renderOutreachDraft(mode,data,null,'unavailable');$('outreach-note').textContent+=' Analysis detail: '+e.message}}
  finally{btn.disabled=false}
 }
@@ -468,9 +469,12 @@ $('compose-social').onclick=async()=>{
  if(!selectedDraftLead||lastDraftMode!=='social')return;
  const profile=socialProfile(selectedDraftLead);
  if(!profile){$('outreach-note').textContent='A verified social profile is required.';return}
- try{await navigator.clipboard.writeText($('draft-output').value)}catch{}
+ try{await navigator.clipboard.writeText($('draft-output').value)}catch{
+  $('draft-output').focus();$('draft-output').select();
+  $('outreach-note').textContent='Copy the selected draft first, then open the verified social profile. Clipboard access was unavailable; no message was sent.';return;
+ }
  window.location.assign(profile);
- $('outreach-note').textContent='Social profile opened. Paste your draft in its message composer and send there; no message was sent automatically.';
+ $('outreach-note').textContent='Draft copied. Opening the verified social profile; paste it in the platform message composer and send there. No message was sent by LeadFlow.';
 };
 $('run-outreach-action').onclick=()=>{
  const choice=$('outreach-action').value;
