@@ -17,8 +17,10 @@ test('Gmail expiry is measured at token issuance, refresh is coalesced, and send
   return Response.json({id:'message-'+sends});
  };
  try{
-  const start=new URL(oauthStart('google'));assert.equal(start.searchParams.get('code_challenge_method'),'S256');
+  assert.throws(()=>oauthStart('google','https://untrusted.example'),/destination/);
+  const start=new URL(oauthStart('google','https://leadflow-research-api.onrender.com/app'));assert.equal(start.searchParams.get('code_challenge_method'),'S256');
   const callback=new URL(await oauthCallback(new URLSearchParams({state:start.searchParams.get('state'),code:'test-code'})));
+  assert.equal(callback.pathname,'/app');
   const ticket=new URLSearchParams(callback.hash.slice(1)).get('oauth-ticket');session=oauthExchange(ticket).session;
   assert.throws(()=>oauthExchange(ticket),/expired/);
   const message={to:'recipient@example.com',subject:'Café website idea',body:'Test fixture only',confirm:true};

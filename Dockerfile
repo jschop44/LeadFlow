@@ -5,6 +5,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --omit=dev --ignore-scripts --no-audit --no-fund
 COPY --chown=node:node backend ./backend
+COPY --chown=node:node index.html ./index.html
 USER node
 EXPOSE 10000
 CMD ["node","backend/server.js"]

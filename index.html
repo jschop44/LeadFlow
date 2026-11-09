@@ -415,7 +415,7 @@ async function startEmailConnection(provider){
    }
   }
  }catch(e){$('outreach-note').textContent='Could not check provider readiness; attempting sign-in directly.'}
- window.location.assign(emailApi+'/oauth/start?provider='+provider);
+ window.location.assign(emailApi+'/oauth/start?provider='+provider+(location.origin===emailApi?'&returnTo='+encodeURIComponent(emailApi+'/app'):''));
 }
 $('connect-gmail').onclick=()=>startEmailConnection('google');
 
