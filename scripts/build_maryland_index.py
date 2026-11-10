@@ -80,13 +80,19 @@ class Collect(osmium.SimpleHandler):
 # Ways can contain incomplete geometry; retain valid nodes even when way geometry fails.
 handler=Collect()
 try:
- handler.apply_file(PBF,locations=True,idx='flex_mem')
+ # Location handling runs before native filters, so unnamed geometry nodes
+ # remain available to named ways without a Python callback per map object.
+ for obj in osmium.FileProcessor(PBF).with_locations('flex_mem').with_filter(osmium.filter.KeyFilter('name')):
+  if obj.is_node():handler.node(obj)
+  elif obj.is_way():handler.way(obj)
 except (RuntimeError,ValueError) as exc:
  print("Geometry-enabled import failed; retrying named nodes only:",exc)
  rows.clear()
  class NodesOnly(Collect):
   def way(self,obj):pass
- NodesOnly().apply_file(PBF)
+ fallback=NodesOnly()
+ for obj in osmium.FileProcessor(PBF).with_filter(osmium.filter.KeyFilter('name')):
+  if obj.is_node():fallback.node(obj)
 
 OUT.parent.mkdir(parents=True,exist_ok=True)
 # Preserve independently sourced seed listings when the statewide OSM index refreshes.

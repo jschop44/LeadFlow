@@ -11,12 +11,17 @@ with tempfile.TemporaryDirectory() as directory:
       <node id="1" lat="40.750" lon="-73.996"><tag k="name" v="Synthetic accounting fixture"/><tag k="office" v="accountant"/><tag k="contact:email" v="public@example.test"/><tag k="addr:postcode" v="10001"/></node>
       <node id="2" lat="34.05" lon="-118.24"><tag k="name" v="Outside-region fixture"/><tag k="office" v="accountant"/></node>
       <node id="3" lat="40.751" lon="-73.997"><tag k="name" v="Generic consultant fixture"/><tag k="office" v="consulting"/></node>
+      <node id="4" lat="40.752" lon="-73.998"/>
+      <node id="5" lat="40.753" lon="-73.999"/>
+      <way id="10"><nd ref="4"/><nd ref="5"/><tag k="name" v="Named business on unnamed geometry"/><tag k="office" v="accountant"/></way>
     </osm>''')
     env={**os.environ,'LEADFLOW_REGION':'new-york','OSM_PBF':str(source)}
     subprocess.run([sys.executable,'scripts/build_maryland_index.py'],cwd=work,env=env,check=True)
     data=json.loads(gzip.decompress((work/'backend/data/us-regional/new-york.json.gz').read_bytes()))
-    assert data['region_slug']=='new-york' and len(data['records'])==1
-    row=data['records'][0]
+    assert data['region_slug']=='new-york' and len(data['records'])==2
+    row=next(r for r in data['records'] if r['type']=='node')
+    way=next(r for r in data['records'] if r['type']=='way')
+    assert way['id']==10 and way['lat']==40.7525 and way['lon']==-73.9985
     assert row['tags']['contact:email']=='public@example.test'
     assert row['niches']==['Accountants'] and 'New York' in row['sourceAgreement'][0]
     assert data['generated_at']

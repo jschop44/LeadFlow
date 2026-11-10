@@ -12,6 +12,7 @@ on:
     - cron: '25 6 1 * *'
 permissions:
   contents: read
+  actions: read
 concurrency:
   group: us-regional-index
   cancel-in-progress: false
@@ -24,32 +25,59 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY'
-          import json,os
+          import json,os,subprocess
           data=json.load(open('backend/data/us-regions.json'))['regions']
           assert len(data)==51 and len({r['code'] for r in data})==51
+          repo=os.environ['GITHUB_REPOSITORY'];current=int(os.environ['GITHUB_RUN_ID'])
+          # Reuse the last run's successfully uploaded state artifacts, then
+          # rebuild missing states. The same full validation still gates publication.
+          reuse={}
+          try:
+              runs=json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/actions/workflows/refresh-us-index.yml/runs?per_page=5']))['workflow_runs']
+              previous=next((r for r in runs if r['id']<current and r['head_branch']=='main'),None)
+              if previous:
+                  artifacts=json.loads(subprocess.check_output(['gh','api',f'repos/{repo}/actions/runs/{previous["id"]}/artifacts?per_page=100']))['artifacts']
+                  reuse={a['name']:str(previous['id']) for a in artifacts if not a['expired'] and a['size_in_bytes']<=6000000}
+          except (subprocess.CalledProcessError,KeyError,ValueError):
+              print('Previous artifacts unavailable; building from attributed public extracts.')
           data.sort(key=lambda r:(r['slug']!='new-york',r['slug']))
           with open(os.environ['GITHUB_OUTPUT'],'a') as f:
-              f.write('matrix='+json.dumps({'region':[{'slug':r['slug'],'pbf':r['pbf']} for r in data]},separators=(',',':'))+'\n')
+              f.write('matrix='+json.dumps({'region':[{'slug':r['slug'],'pbf':r['pbf'],'reuse_run':reuse.get('us-index-'+r['slug'],'')} for r in data]},separators=(',',':'))+'\n')
           PY
   build:
     needs: regions
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       max-parallel: 3
       matrix: ${{ fromJSON(needs.regions.outputs.matrix) }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        id: reuse
+        if: matrix.region.reuse_run != ''
+        continue-on-error: true
+        with:
+          name: us-index-${{ matrix.region.slug }}
+          path: backend/data/us-regional
+          run-id: ${{ matrix.region.reuse_run }}
+          github-token: ${{ github.token }}
       - uses: actions/setup-python@v5
+        if: steps.reuse.outcome != 'success'
         with:
           python-version: '3.12'
       - run: python -m pip install osmium==4.3.2
+        if: steps.reuse.outcome != 'success'
       - name: Verify importer against isolated synthetic OSM fixtures
+        if: steps.reuse.outcome != 'success'
         run: python scripts/test_regional_import.py
       - name: Download public state extract and build attributed listings
+        if: steps.reuse.outcome != 'success'
         env:
           LEADFLOW_REGION: ${{ matrix.region.slug }}
           PBF_URL: ${{ matrix.region.pbf }}
