@@ -1,0 +1,108 @@
+name: Refresh US regional business index
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/refresh-us-index.yml'
+      - 'scripts/build_maryland_index.py'
+      - 'scripts/test_regional_import.py'
+      - 'backend/data/us-regions.json'
+  workflow_dispatch:
+  schedule:
+    - cron: '25 6 1 * *'
+permissions:
+  contents: read
+concurrency:
+  group: us-regional-index
+  cancel-in-progress: false
+jobs:
+  regions:
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.plan.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: plan
+        run: |
+          python3 - <<'PY'
+          import json,os
+          data=json.load(open('backend/data/us-regions.json'))['regions']
+          assert len(data)==51 and len({r['code'] for r in data})==51
+          data.sort(key=lambda r:(r['slug']!='new-york',r['slug']))
+          with open(os.environ['GITHUB_OUTPUT'],'a') as f:
+              f.write('matrix='+json.dumps({'region':[{'slug':r['slug'],'pbf':r['pbf']} for r in data]},separators=(',',':'))+'\n')
+          PY
+  build:
+    needs: regions
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.regions.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install osmium==4.3.2
+      - name: Verify importer against isolated synthetic OSM fixtures
+        run: python scripts/test_regional_import.py
+      - name: Download public state extract and build attributed listings
+        env:
+          LEADFLOW_REGION: ${{ matrix.region.slug }}
+          PBF_URL: ${{ matrix.region.pbf }}
+          OSM_PBF: /tmp/region.osm.pbf
+        run: |
+          curl --fail --location --retry 1 --max-time 600 "$PBF_URL" --output "$OSM_PBF"
+          python scripts/build_maryland_index.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: us-index-${{ matrix.region.slug }}
+          path: backend/data/us-regional/${{ matrix.region.slug }}.json.gz
+          if-no-files-found: error
+          retention-days: 1
+  publish:
+    needs: [regions, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: us-index-*
+          path: backend/data/us-regional
+          merge-multiple: true
+      - name: Verify every region before publishing any index updates
+        run: |
+          python3 - <<'PY'
+          import gzip,json,pathlib
+          definitions=json.load(open('backend/data/us-regions.json'))['regions']
+          count=0
+          for region in definitions:
+              path=pathlib.Path('backend/data/us-regional')/(region['slug']+'.json.gz')
+              assert path.stat().st_size<=5000000
+              decoded=gzip.decompress(path.read_bytes())
+              assert len(decoded)<=20000000
+              data=json.loads(decoded)
+              assert data['region_slug']==region['slug'] and data['records'] and len(data['records'])<=50000
+              assert data['generated_at'] and all(r.get('tags',{}).get('name') and r.get('sourceAgreement') and r.get('niches') for r in data['records'])
+              count+=len(data['records'])
+          print(json.dumps({'regions_verified':len(definitions),'attributed_listings':count,'coverage':'partial community-contributed business listings'}))
+          PY
+      - name: Commit verified regional data while preserving current application code
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/data/us-regional
+          if ! git diff --cached --quiet; then
+            git commit -m 'Refresh attributed US regional business listings for all 50 states and DC'
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi
