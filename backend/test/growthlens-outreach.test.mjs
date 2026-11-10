@@ -25,6 +25,19 @@ test('finding identifier substrings do not create false verified findings',()=>{
  assert.equal(auditOpportunity({url:'https://example.com',findings:[{id:'not_contact_verified',passed:false}]}).verified,false);
  assert.equal(auditOpportunity({findings:[{id:'contact',passed:false}]}).verified,false);
 });
+test('shared business-context ranking drives drafts using only observed failed findings',()=>{
+ const audit={url:'https://example.com',findings:[
+  {id:'contact',name:'Contact path',passed:false},
+  {id:'mobile',name:'Mobile viewport',passed:false,recommendation:'Configure the viewport for mobile visitors.'},
+  {id:'lead_capture',passed:true}
+ ]};
+ const ranked=auditOpportunity(audit,'Web design',[{finding_id:'lead_capture'},{finding_id:'not_contact_verified'},{finding_id:'mobile'},{finding_id:'contact'}]);
+ assert.equal(ranked.id,'mobile');
+ const draft=personalizedDraft({business:'Harbor Dental',service:'Web design',sender:'Sam',unsubscribe:'Reply stop'},ranked);
+ assert.match(draft.text,/Configure the viewport/);assert.match(draft.socialText,/Configure the viewport/);
+ assert.equal(auditOpportunity(audit,'Web design',null).id,'contact');
+ assert.equal(auditOpportunity({...audit,findings:[...audit.findings,{id:'secure_forms',passed:false}]},'Web design',[{finding_id:'mobile'}]).id,'secure_forms');
+});
 test('observed insecure forms take precedence in both outreach drafts, with the actual fix',()=>{
  const opportunity=auditOpportunity({url:'https://clinic.example',findings:[
   {id:'contact',name:'Contact path',passed:false},

@@ -18,11 +18,18 @@ const ideas=[
  ['schema_validity','repair malformed structured business data','valid JSON-LD helps search engines parse the business details you provide'],
  ['faq','answer common questions before a customer reaches out','a concise FAQ can reduce uncertainty and repetitive inquiries']
 ];
-export function auditOpportunity(audit,service){
+export function auditOpportunity(audit,service,ranking=[]){
  const findings=Array.isArray(audit?.findings)?audit.findings:[];
  if(typeof audit?.url!=='string'||!/^https?:\/\//i.test(audit.url))return {verified:false,reason:'Audit source URL unavailable'};
  const failures=findings.filter(x=>x&&x.passed===false&&typeof x.id==='string');
- const selected=ideas.map(([id,action,reason])=>({id,action,reason,finding:failures.find(f=>f.id===id)})).find(x=>x.finding);
+ const priorities=new Map();
+ for(const item of Array.isArray(ranking)?ranking.slice(0,100):[]){
+  if(typeof item?.finding_id==='string'&&!priorities.has(item.finding_id))priorities.set(item.finding_id,priorities.size);
+ }
+ const candidates=ideas.map(([id,action,reason],fallback)=>({id,action,reason,fallback,finding:failures.find(f=>f.id===id)})).filter(x=>x.finding);
+ candidates.sort((a,b)=>Number(['secure_forms','mixed_content'].includes(b.id))-Number(['secure_forms','mixed_content'].includes(a.id))||
+  (priorities.get(a.id)??1000)-(priorities.get(b.id)??1000)||a.fallback-b.fallback);
+ const selected=candidates[0];
  if(!selected)return {verified:false,reason:'No relevant verified audit finding available',score:typeof audit?.score==='number'?audit.score:null};
  return {verified:true,id:selected.id,action:selected.action,reason:selected.reason,finding:selected.finding.name||selected.id,source:audit.url||null,score:typeof audit.score==='number'?audit.score:null,service:String(service||'').trim(),recommendation:String(selected.finding.recommendation||'').slice(0,350),evidenceMethod:selected.finding.evidence?.method||'single_page_audit',contextDependent:/context dependent/i.test(selected.finding.category||'')};
 }

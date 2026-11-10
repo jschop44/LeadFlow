@@ -103,7 +103,7 @@ async function smartDraft(data){
     opportunity=auditOpportunity(audit,service);
     try{
      const shared=await sharedOpportunityRanking(target.origin,audit.findings||[],audit.platform,audit.business_type);
-     opportunity={...opportunity,sharedRanking:shared.ranking,sharedScore:shared.score,sharedModel:shared.model};
+     opportunity={...auditOpportunity(audit,service,shared.ranking),sharedRanking:shared.ranking,sharedScore:shared.score,sharedModel:shared.model};
     }catch(err){console.warn('Shared ranking unavailable:',err.message)}
    }
    else opportunity={verified:false,reason:'Growth Lens returned a partial audit; no verified website finding'};
