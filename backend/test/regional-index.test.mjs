@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {containsPoint,createRegionalSearch} from '../regional-index.js';
+import {containsPoint,createRegionalSearch,matchesIndexedNiche} from '../regional-index.js';
 const polygon={type:'Polygon',coordinates:[[[0,0],[10,0],[10,10],[0,10],[0,0]],[[4,4],[6,4],[6,6],[4,6],[4,4]]]};
 const definitions=[{slug:'test-region',name:'Test Region',geometry:polygon}];
 const row={type:'node',id:1,lat:2,lon:2,niches:['Accountants'],tags:{name:'Synthetic test business',email:'public@example.test'}};
@@ -47,4 +47,12 @@ test('bounded gzip loader reads published files and preserves attributed seed pr
   globalThis.fetch=async()=>new Response('invalid gzip');
   assert.equal((await createRegionalSearch({definitions})(query)).elements.length,0);
  }finally{globalThis.fetch=original;}
+});
+
+test('insurance listings require explicit advisory evidence before becoming financial-adviser leads',()=>{
+ const agency={tags:{name:'Synthetic insurance agency',office:'insurance'},niches:['Financial advisors','Insurance agencies']};
+ assert.equal(matchesIndexedNiche(agency,'Financial advisors'),false);
+ assert.equal(matchesIndexedNiche(agency,'Insurance agencies'),true);
+ assert.equal(matchesIndexedNiche({...agency,tags:{...agency.tags,services:'Financial planning and retirement advisory'}},'Financial advisors'),true);
+ assert.equal(matchesIndexedNiche({...agency,tags:{name:'Synthetic advisory firm',office:'financial'}},'Financial advisors'),true);
 });

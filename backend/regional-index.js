@@ -10,6 +10,14 @@ function insideRing(lon,lat,ring){
  }
  return inside;
 }
+export function matchesIndexedNiche(row,niche,declared=row?.niches){
+ if(!Array.isArray(declared)||!declared.includes(niche))return false;
+ if(niche==='Financial advisors'&&/insurance/i.test(row?.tags?.office||'')){
+  const facts=['name','description','service','services'].map(key=>String(row?.tags?.[key]||'')).join(' ');
+  return /financial advis(?:or|er)|financial plann|wealth manag|investment advis(?:or|er)/i.test(facts);
+ }
+ return true;
+}
 export function containsPoint(geometry,lon,lat){
  const polygons=geometry.type==='Polygon'?[geometry.coordinates]:geometry.type==='MultiPolygon'?geometry.coordinates:[];
  return polygons.some(rings=>insideRing(lon,lat,rings[0])&&!rings.slice(1).some(ring=>insideRing(lon,lat,ring)));
@@ -45,7 +53,7 @@ export function createRegionalSearch({load=download,now=Date.now,definitions=reg
    const source='OpenStreetMap Geofabrik '+selected[i].name+' extract';
    sources.push({region:selected[i].name,generated_at:state.data.generated_at,stale:state.stale||now()-Date.parse(state.data.generated_at)>1209600000});
    for(const row of state.data.records){
-    if(typeof row?.tags?.name!=='string'||!row.tags.name.trim()||row.tags.name.length>240||!['node','way','relation'].includes(row.type)||!Number.isSafeInteger(row.id)||!Array.isArray(row.niches)||!row.niches.includes(niche)||!Number.isFinite(row.lat)||!Number.isFinite(row.lon)||row.lat<south||row.lat>north||row.lon<west||row.lon>east||!containsPoint(selected[i].geometry,row.lon,row.lat))continue;
+    if(typeof row?.tags?.name!=='string'||!row.tags.name.trim()||row.tags.name.length>240||!['node','way','relation'].includes(row.type)||!Number.isSafeInteger(row.id)||!matchesIndexedNiche(row,niche)||!Number.isFinite(row.lat)||!Number.isFinite(row.lon)||row.lat<south||row.lat>north||row.lon<west||row.lon>east||!containsPoint(selected[i].geometry,row.lon,row.lat))continue;
     if(row.tags['addr:country']&&!['US','USA','United States'].includes(row.tags['addr:country']))continue;
     elements.push({...row,sourceAgreement:Array.isArray(row.sourceAgreement)&&row.sourceAgreement.some(x=>typeof x==='string'&&x.trim())?row.sourceAgreement.filter(x=>typeof x==='string'&&x.trim()).slice(0,3):[source],sourceCount:1,classification:'Local',listingVerification:'community_contributed_snapshot',snapshotDate:state.data.generated_at});
    }
