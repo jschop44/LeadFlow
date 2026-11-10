@@ -34,7 +34,7 @@
 <option value="copy">Copy draft</option>
 <option value="compose-email">Open email app</option>
 <option value="send-connected">Send from connected email</option>
-<option value="compose-social">Open social message composer</option>
+<option value="compose-social">Copy draft &amp; open social profile</option>
 <option value="open-social">View social profile</option>
 </select>
 <button id="run-outreach-action" class="secondary">Go</button>
@@ -53,7 +53,7 @@
 <button id="copy-draft" class="secondary">Copy draft</button>
 <button id="compose-email" class="secondary">Open email app</button>
 <button id="send-connected" class="secondary">Send email</button>
-<button id="compose-social" class="secondary" disabled>Open message composer</button>
+<button id="compose-social" class="secondary" disabled>Copy draft &amp; open social profile</button>
 <button id="open-social" class="secondary" onclick="window.leadflowOpenSocial && window.leadflowOpenSocial()">Open social profile</button>
 </div><details id="outreach-settings" style="margin:18px 0"><summary>One-time sender and service setup</summary><p class="muted">Save your offering and sender details once on this device. They are reused for each lead.</p><div class="filters"><div><label for="out-service">Service you offer</label><input id="out-service" placeholder="e.g. Website conversion optimization"></div><div><label for="out-sender">Your business name and postal address</label><input id="out-sender" placeholder="Business name and address"></div><div><label for="out-optout">Opt-out instructions</label><input id="out-optout" placeholder="Reply unsubscribe"></div></div><div class="actions"><button id="save-outreach-settings" class="secondary">Save settings on this device</button></div></details><div style="margin:14px 0"><label for="manual-recipient">Recipient email address (editable fallback)</label><input id="manual-recipient" type="email" autocomplete="off" inputmode="email" placeholder="Enter a business contact email, if known" style="max-width:560px"><p id="recipient-source" class="muted" style="font-size:13px;margin:6px 0">No recipient selected. You can enter a known business email address manually.</p></div><div id="outreach-note" class="muted" style="margin:12px 0">Select a business above to begin.</div><details id="knowledge-panel" style="margin:14px 0"><summary>Knowledge Base — private document intelligence</summary>
 <p class="muted">Available only when the backend knowledge feature is enabled. Upload PDF, DOCX, TXT, or Markdown (up to 1.4 MB). Scanned PDFs require OCR and are not yet supported. Use your existing API access token.</p>

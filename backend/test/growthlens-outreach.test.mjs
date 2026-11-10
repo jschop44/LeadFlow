@@ -25,6 +25,17 @@ test('finding identifier substrings do not create false verified findings',()=>{
  assert.equal(auditOpportunity({url:'https://example.com',findings:[{id:'not_contact_verified',passed:false}]}).verified,false);
  assert.equal(auditOpportunity({findings:[{id:'contact',passed:false}]}).verified,false);
 });
+test('observed insecure forms take precedence in both outreach drafts, with the actual fix',()=>{
+ const opportunity=auditOpportunity({url:'https://clinic.example',findings:[
+  {id:'contact',name:'Contact path',passed:false},
+  {id:'secure_forms',name:'Secure form destinations',passed:false,recommendation:'Change the appointment form action to your approved HTTPS booking endpoint.'}
+ ]},'Website improvement');
+ assert.equal(opportunity.id,'secure_forms');
+ const draft=personalizedDraft({business:'Harbor Clinic',service:'Website improvement',sender:'Sam',unsubscribe:'Reply stop'},opportunity);
+ assert.match(draft.text,/approved HTTPS booking endpoint/);
+ assert.match(draft.socialText,/approved HTTPS booking endpoint/);
+ assert.doesNotMatch(draft.text,/breach|guarantee|\$\d/i);
+});
 import {createAuditCache} from '../growthlens-outreach.js';
 test('simultaneous email and DM share one audit, reuse results, expire and evict',async()=>{
  let calls=0,clock=0;const cached=createAuditCache(async()=>{calls++;return {status:'completed',findings:[]};},{now:()=>clock,ttlMs:10,maxEntries:1});

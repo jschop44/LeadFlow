@@ -1,5 +1,7 @@
 const FALLBACK='https://growthlens-free-test.onrender.com';
 const ideas=[
+ ['secure_forms','secure the destination used by website forms','an approved HTTPS destination protects form submissions in transit'],
+ ['mixed_content','secure embedded website resources','HTTPS resource links can avoid blocked content'],
  ['contact','make contacting your team easier','a clearer contact path can help interested visitors reach you'],
  ['lead_capture','make it easier for visitors to request information','a focused inquiry form can reduce friction for potential customers'],
  ['primary_action','make the next step more prominent','a clear primary call to action can guide visitors toward contacting you'],
@@ -10,8 +12,10 @@ const ideas=[
  ['trust','make customer confidence signals easier to find','visible trust signals may help visitors feel more confident'],
  ['conversion_cta','make the next step more prominent','a clear call to action can guide visitors toward the right service'],
  ['image_dimensions','reserve space for images as they load','stable image layouts can reduce content movement'],
- ['mixed_content','secure embedded website resources','HTTPS resource links can avoid blocked content'],
  ['accessible_links','give website links clear accessible names','clear link names help visitors navigate with assistive technology'],
+ ['blocking_scripts','defer noncritical scripts after checking dependencies','reducing render-blocking scripts may help page content appear sooner'],
+ ['main_landmark','identify the primary page content for assistive technology','a main landmark helps visitors navigate directly to the page content'],
+ ['schema_validity','repair malformed structured business data','valid JSON-LD helps search engines parse the business details you provide'],
  ['faq','answer common questions before a customer reaches out','a concise FAQ can reduce uncertainty and repetitive inquiries']
 ];
 export function auditOpportunity(audit,service){
