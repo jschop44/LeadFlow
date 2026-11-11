@@ -4,7 +4,12 @@ export async function forwardForgeEvent(request,env){
  try{
  const raw=await request.text();if(raw.length>16000)throw Error('Payload too large');
  const data=JSON.parse(raw);if(data.consent!==true||!data.tenantId||!data.businessName)throw Error('Consent, tenant and business name required');
- const event={eventId:crypto.randomUUID(),tenantId:String(data.tenantId),source:'leadflow',businessName:String(data.businessName).slice(0,120),consent:true};
+ const isUuid=value=>typeof value==='string'&&/^[a-f0-9]{8}-[a-f0-9]{4}-[1-8][a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i.test(value);
+ if(!isUuid(data.tenantId))throw Error('Invalid tenant ID');
+ if(data.eventId!==undefined&&!isUuid(data.eventId))throw Error('Invalid event ID');
+ const businessName=String(data.businessName).trim();
+ if(businessName.length<2||businessName.length>120)throw Error('Invalid business name');
+ const event={eventId:data.eventId||crypto.randomUUID(),tenantId:data.tenantId,source:'leadflow',businessName,consent:true};
  if(data.website)event.website=String(data.website).slice(0,2048);
  if(data.summary)event.summary=String(data.summary).slice(0,3000);
  const body=JSON.stringify(event),timestamp=String(Date.now()),encoder=new TextEncoder();
