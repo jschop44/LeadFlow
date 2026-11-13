@@ -7,7 +7,7 @@
 export function nominatimBusinessLead(place){
  if(!place||typeof place!=='object')return null;
  const lat=Number(place.lat),lon=Number(place.lon);
- if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat<24||lat>50||lon< -126||lon> -66)return null;
+ if(!Number.isFinite(lat)||!Number.isFinite(lon)||lat< -90||lat>90||lon< -180||lon>180)return null;
  if(place.address?.country_code&&String(place.address.country_code).toLowerCase()!=='us')return null;
  const category=String(place.category||place.class||'').toLowerCase();
  const kind=String(place.type||'').toLowerCase();
