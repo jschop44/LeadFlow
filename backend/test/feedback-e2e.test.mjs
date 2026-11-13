@@ -22,7 +22,7 @@ test('HTTP feedback survives a server restart and changes priority, not evidence
     API_TOKEN:'isolated-read-token',SHARED_INTELLIGENCE_TOKEN:token},stdio:'ignore'});
   for(let i=0;i<80;i++){
    if(child.exitCode!==null)throw Error('server exited');
-   try{const response=await fetch(base+'/health');if(response.ok)return}catch{}
+   try{const response=await fetch(base+'/health');if(response.ok&&(await response.json()).onlineCatalog?.ready)return}catch{}
    await new Promise(resolve=>setTimeout(resolve,100));
   }
   throw Error('server startup timed out');
