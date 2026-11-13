@@ -1,6 +1,6 @@
 import {createRegionalSearch,matchesIndexedNiche,resolveUSState} from './regional-index.js';
 import {supportsCatalogNiche} from './catalog-niche-evidence.js';
-import {productTextMatches,supportedUSCatalogRecord} from './product-evidence.js';
+import {productTextMatches,supportedUSCatalogRecord,observedCommerceControl} from './product-evidence.js';
 import {firstPartyMerchantLocation,merchantProductPage,sameMerchantHost,merchantSourceMaxBytes} from './merchant-location-evidence.js';
 import {createSearchRunner} from './search-execution.js';
 import {createHostPacer} from './provider-pacing.js';
@@ -479,8 +479,9 @@ async function verifyProductMerchants(niche){
    if(inspected.classification!=='Online'&&merchant.productPage&&sameMerchantHost(merchant.website,merchant.productPage)){
     try{
      const html=await get(merchant.productPage,merchantSourceMaxBytes(merchants,merchant.productPage));
-     if(productTextMatches(html,'add to cart'))inspected={classification:'Online',platform:'Not verified',
-      classificationEvidence:'Published Add to Cart controls on official product collection'};
+     const control=observedCommerceControl(html);
+     if(control)inspected={classification:'Online',platform:'Not verified',
+      classificationEvidence:'Observed '+control+' control on official product collection'};
     }catch(error){
      // Limit diagnostics to known error classes; never log response HTML, URLs,
      // user-provided keywords, headers, tokens or private credentials.

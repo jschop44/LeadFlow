@@ -18,3 +18,40 @@ export function supportedUSCatalogRecord(record){
   return website.protocol==='https:'&&source.protocol==='https:'&&host(website)===host(source)&&!website.username&&!website.password&&!source.username&&!source.password;
  }catch{return false}
 }
+
+
+/** Only an observable enabled shopping control on an official product page
+ * establishes storefront functionality. Text in scripts, product descriptions
+ * or hidden/disabled controls is not evidence that checkout is available.
+ */
+export function observedCommerceControl(html){
+ const document=String(html||'').slice(0,2_000_000)
+  .replace(/<!--[\s\S]*?-->/g,' ')
+  .replace(/<(script|style|noscript|template)\b[^>]*>[\s\S]*?<\/\1>/gi,' ');
+ const hidden=attrs=>/(?:^|\s)(?:hidden|disabled)(?:\s|=|$)/i.test(attrs)||
+  /\baria-hidden\s*=\s*["']?true/i.test(attrs)||
+  /\bstyle\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(attrs);
+ const kind=value=>{
+  const normalized=normalizeProductWords(value.replace(/&(?:nbsp|amp);|&#160;/gi,' '));
+  if(normalized.length>90)return;
+  if(/^add to cart(?:\b|$)/.test(normalized))return 'Add to Cart';
+  if(/^add to bag(?:\b|$)/.test(normalized))return 'Add to Bag';
+  if(/^add to basket(?:\b|$)/.test(normalized))return 'Add to Basket';
+  if(/^buy now(?:\b|$)/.test(normalized))return 'Buy Now';
+ };
+ for(const match of document.matchAll(/<button\b([^>]*)>([\s\S]{0,2500}?)<\/button>/gi)){
+  if(hidden(match[1]))continue;
+  const aria=match[1].match(/\baria-label\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+  const text=(aria?.[1]||aria?.[2]||match[2].replace(/<[^>]*>/g,' ')).trim();
+  const control=kind(text);
+  if(control)return control;
+ }
+ for(const match of document.matchAll(/<input\b([^>]*?)\/?>/gi)){
+  const attrs=match[1];
+  if(hidden(attrs)||!/\btype\s*=\s*["']?(?:submit|button)(?=["'\s]|$)/i.test(attrs))continue;
+  const value=attrs.match(/\bvalue\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+  const control=kind(value?.[1]||value?.[2]||'');
+  if(control)return control;
+ }
+ return undefined;
+}
