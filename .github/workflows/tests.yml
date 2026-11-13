@@ -67,6 +67,10 @@ jobs:
         env:
           DATABASE_URL: postgresql://kb_test:kb_test_password@127.0.0.1:5432/kb_test
         run: node tests/lead-library.integration.mjs
+      - name: Verify pizza OSM importer with isolated synthetic nodes and ways
+        run: |
+          python3 -m pip install --quiet osmium==4.3.2
+          python3 scripts/test_regional_import.py
       - name: Validate expanded Maryland coverage
         run: |
           node --input-type=module <<'NODE'
