@@ -1,6 +1,7 @@
 import {createRegionalSearch,matchesIndexedNiche,resolveUSState} from './regional-index.js';
 import {supportsCatalogNiche} from './catalog-niche-evidence.js';
 import {productTextMatches,supportedUSCatalogRecord} from './product-evidence.js';
+import {firstPartyMerchantLocation,merchantProductPage,sameMerchantHost} from './merchant-location-evidence.js';
 import {createSearchRunner} from './search-execution.js';
 import {createHostPacer} from './provider-pacing.js';
 import {serveFrontend} from './frontend.js';
@@ -415,11 +416,20 @@ async function refreshOnlineCatalog(){
 }
 const productMerchantSources={
  'Red light therapy devices':[
-  {name:'iRESTORE',website:'https://www.irestorelaser.com/'},
-  {name:'Hooga',website:'https://hoogahealth.com/'},
-  {name:'Mito Red Light',website:'https://mitoredlight.com/'}
+  // Each US address is checked against current first-party public evidence.
+  {name:'Hooga',website:'https://hoogahealth.com/',officePage:'https://hoogahealth.com/pages/about',
+   officePhrase:'New Berlin WI USA',officeLocation:'New Berlin, WI, USA',
+   productPage:'https://hoogahealth.com/collections/red-light-therapy-devices'},
+  {name:'Mito Red Light',website:'https://mitoredlight.com/',officePage:'https://mitoredlight.com/pages/contact-us',
+   officePhrase:'Scottsdale AZ 85258',officeLocation:'Scottsdale, AZ, USA',
+   productPage:'https://mitoredlight.com/collections/red-light-therapy'},
+  {name:'iRESTORE',website:'https://www.irestorelaser.com/'}
  ],
- 'Sauna blankets':[{name:'HigherDOSE',website:'https://higherdose.com/'}],
+ 'Sauna blankets':[
+  {name:'HigherDOSE',website:'https://higherdose.com/',officePage:'https://higherdose.com/pages/terms-conditions',
+   officePhrase:'operated by HigherDOSE from its offices in New York',officeLocation:'New York, NY, USA',
+   productPage:'https://higherdose.com/collections/infrared-sauna-collection'}
+ ],
  'Skin-care devices':[{name:'CurrentBody',website:'https://www.currentbody.com/'}]
 };
 const productSeedRefresh=new Map();
@@ -432,19 +442,31 @@ async function verifyProductMerchants(niche){
   const domain=catalogDomain(merchant.website);
   if(!domain)continue;
   const previous=onlineCatalog.get(domain);
-  if(previous&&Date.now()-previous.checkedAt<7*86400000&&previous.niches?.includes(niche))continue;
+  if(previous&&Date.now()-Number(previous.checkedAt||0)<7*86400000&&previous.niches?.includes(niche)&&
+     supportedUSCatalogRecord(previous)&&previous.productEvidencePage)continue;
   try{
-   const inspected=await inspectBusinessWebsite(merchant.website);
+   // Shipping to the US does not establish a US business location.
+   if(!merchant.officePage||!sameMerchantHost(merchant.website,merchant.officePage))continue;
+   const location=firstPartyMerchantLocation(merchant,await get(merchant.officePage));
+   if(!location)continue;
+   let inspected=await inspectBusinessWebsite(merchant.website);
+   if(inspected.classification!=='Online'&&merchant.productPage&&sameMerchantHost(merchant.website,merchant.productPage)){
+    try{
+     const html=await get(merchant.productPage);
+     if(productTextMatches(html,'add to cart'))inspected={classification:'Online',platform:'Not verified',
+      classificationEvidence:'Published Add to Cart controls on official product collection'};
+    }catch{}
+   }
    if(inspected.classification!=='Online')continue;
+   const productEvidencePage=merchant.productPage&&sameMerchantHost(merchant.website,merchant.productPage)?merchant.productPage:undefined;
    const element={type:'node',id:'merchant-'+domain,tags:{name:merchant.name,website:merchant.website},
-     classification:'Online',platform:inspected.platform,classificationEvidence:inspected.classificationEvidence,
-     usEvidence:'U.S. shipping offered on public storefront; headquarters not independently verified'};
-   const row={domain,niches:[...new Set([...(previous?.niches||[]),niche])],
-     checkedAt:Date.now(),classification:'Online',platform:inspected.platform,
-     evidence:inspected.classificationEvidence,usEvidence:element.usEvidence,element};
+    classification:'Online',platform:inspected.platform,classificationEvidence:inspected.classificationEvidence,...location};
+   const row={domain,niches:[...new Set([...(previous?.niches||[]),niche])],checkedAt:Date.now(),
+    classification:'Online',platform:inspected.platform,evidence:inspected.classificationEvidence,
+    productEvidencePage,...location,element};
    await catalogStore.save(row);
    onlineCatalog.set(domain,row);
-  }catch(error){console.warn('Merchant verification unavailable:',domain,error.message)}
+  }catch(error){console.warn('Merchant first-party verification unavailable:',domain,error.message)}
  }
 }
 async function searchIndexedOnlineBusinesses(niche){
@@ -496,17 +518,17 @@ async function searchProductKeyword(raw){
  // Old niche assignments are candidate hints, not evidence of a product or US location.
  const candidates=records.filter(supportedUSCatalogRecord).sort((a,b)=>Number(Boolean(group&&b.niches?.includes(group.niche)))-Number(Boolean(group&&a.niches?.includes(group.niche)))).slice(0,24);
  let nextProduct=0;await Promise.all(Array.from({length:6},async()=>{while(nextProduct<candidates.length){const r=candidates[nextProduct++];
-  try{const website=r.element?.tags?.website||'',key=r.domain+'|'+query;
+  try{const sourceUrl=merchantProductPage(r),key=r.domain+'|'+query+'|'+sourceUrl;
    let evidence=productEvidenceCache.get(key);
    if(!evidence||Date.now()-evidence.retrievedAt>3600000){
-    evidence={matches:productTextMatches(await get(website),query),sourceUrl:website,retrievedAt:Date.now(),method:'public_visible_product_phrase'};
+    evidence={matches:productTextMatches(await get(sourceUrl),query),sourceUrl,retrievedAt:Date.now(),method:'public_visible_product_phrase'};
     productEvidenceCache.set(key,evidence);while(productEvidenceCache.size>200)productEvidenceCache.delete(productEvidenceCache.keys().next().value);
    }
    if(evidence.matches)matches.push({...r,element:{...r.element,productEvidence:evidence}})
   }catch{}
  }}));
  const unique=[...new Map(matches.map(r=>[r.domain,r])).values()].slice(0,150);
- return {elements:unique.map(r=>({...r.element,sourceAgreement:['Inspected online storefront','Product keyword match']})),
+ return {elements:unique.map(r=>({...r.element,sourceAgreement:[r.usEvidenceKind==='first_party_location_statement'?'Official merchant claims US office':'Public US business record','Inspected online storefront','Visible product keyword match']})),
   niche:query,source:'LeadFlow product keyword search',searchStatus:unique.length?'ok':'no_verified_matches',
   catalogSize:onlineCatalog.size,message:unique.length?'Matching storefronts with published product wording and US business-source evidence.':'No qualifying matches in this bounded catalog inspection. Product labels and US shipping alone do not verify product availability or a US business location.'};
 }
