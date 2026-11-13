@@ -137,7 +137,7 @@ function contactCell(x){
  const routing=evidence?.mailDomain?.status==='mx_present'?' · Domain has MX mail routing (inbox unverified)':evidence?.mailDomain?.status==='null_mx'?' · Domain explicitly declares no incoming mail':evidence?.mailDomain?.status==='domain_not_found'?' · Domain not found in public DNS':evidence?.mailDomain?.status==='no_mx_observed'?' · No MX observed (delivery unknown)':'';
 
  const team=x.enrichedPeople?.length?x.enrichedPeople.slice(0,3).map(p=>{
-  const label=p.role==='Owner'&&p.independentSource==='Wikidata'?'Reported owner (Wikidata claim; verify current)':p.role;
+  const label=p.role==='Unverified ownership claim'&&p.independentSource==='Wikidata'?'Wikidata ownership claim (current control unknown)':p.role;
   const corroboration=p.corroboration==='company_website_and_wikidata_agree'?' · company + Wikidata report this role':'';
   const sourceLinks=(p.sources?.length?p.sources:[p.source]).filter(v=>url(v)).slice(0,3).map(v=>'<a target="_blank" rel="noopener noreferrer" href="'+safe(url(v))+'">source ↗</a>').join(' ');
   return '<strong>'+safe(p.name)+'</strong> <small>('+safe(label)+safe(corroboration)+')</small> '+sourceLinks;
