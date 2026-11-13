@@ -102,7 +102,7 @@ function safe(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 function url(s){if(!s)return '';try{const u=new URL(/^https?:\/\//i.test(s)?s:'https://'+s);return ['https:','http:'].includes(u.protocol)&&!u.username&&!u.password?u.href:''}catch{return ''}}
 function businessType(x){return x.classification||'Local'}
 function typeLabel(x){return '<span class="pill" title="Classification based on available public evidence">'+safe(businessType(x))+'</span>'}
-function score(x){return Math.min(100,20+(x.website?15:0)+((x.phone||x.enrichedPhones?.length)?15:0)+(x.address?10:0)+(x.name?10:0)+((x.email||x.enrichedEmails?.length)?15:0)+(x.owner?10:0)+(x.socials?.length?5:0))}
+function score(x){return Math.min(100,20+(x.website?15:0)+((x.phone||x.enrichedPhones?.length)?15:0)+(x.address?10:0)+(x.name?10:0)+(preferredLeadContact(x).email?15:0)+(x.owner?10:0)+(x.socials?.length?5:0))}
 function socialSearchUrl(x){const city=(x.address||'').replace(/United States \(Wikidata claim\)/gi,'').trim();return 'https://www.google.com/search?q='+encodeURIComponent(x.name+' '+city+' social media LinkedIn Facebook Instagram')}
 function socialLinks(x){
  const profiles=[...(x.socials||[]).map(p=>typeof p==='string'?{url:p,platform:'Social profile'}:p),...(x.enrichedSocials||[]).map(p=>({url:p,platform:'Social profile'}))]
@@ -127,11 +127,32 @@ function npiStateForLead(x){
  if(/^[A-Za-z]{2}$/.test(given))return given.toUpperCase();
  return NPI_STATES[given]||'';
 }
+
+function preferredLeadContact(lead){
+ if(!lead)return {email:'',kind:'missing',evidence:null,blockedCount:0};
+ const valid=value=>typeof value==='string'&&/^[^\s@]+@[a-z0-9.-]+\.[a-z]{2,}$/i.test(value.trim());
+ const domain=value=>String(value||'').trim().toLowerCase().split('@')[1]||'';
+ const bad=new Set(['null_mx','domain_not_found']);
+ const published=Array.isArray(lead.enrichedEmailEvidence)?lead.enrichedEmailEvidence.filter(x=>x&&valid(x.email)):[];
+ const blockedDomains=new Set(published.filter(x=>bad.has(x.mailDomain?.status)).map(x=>domain(x.email)));
+ const usable=value=>valid(value)&&!blockedDomains.has(domain(value));
+ const evidence=published.find(x=>usable(x.email)&&!bad.has(x.mailDomain?.status));
+ if(evidence)return {email:evidence.email.trim(),kind:'company_website',evidence,blockedCount:blockedDomains.size};
+ const candidates=[
+  ...(Array.isArray(lead.enrichedEmails)?lead.enrichedEmails:[]).map(value=>({value,kind:'website_unclassified'})),
+  {value:lead.ownerEmail,kind:'listing_owner_unverified'},
+  {value:lead.email,kind:'listing_company_unverified'}
+ ];
+ for(const item of candidates)if(usable(item.value))return {email:item.value.trim(),kind:item.kind,evidence:null,blockedCount:blockedDomains.size};
+ return {email:'',kind:'missing',evidence:null,blockedCount:blockedDomains.size};
+}
+
 function contactCell(x){
  const state=registryStateForLead(x);
- const evidence=x.enrichedEmailEvidence?.[0]||null;
- const email=evidence?.email||x.ownerEmail||x.enrichedEmails?.[0]||x.email||'';
- const label=evidence?(evidence.classification==='named_company_published'?'Named company contact (not independently verified)':evidence.businessDomainMatch?'Published company-domain address':'Published external-domain address'):x.ownerEmail?'Owner email in source listing (unverified)':x.enrichedEmails?.length?'Website email (unverified)':'Company email (listed; unverified)';
+ const chosen=preferredLeadContact(x);
+ const evidence=chosen.evidence;
+ const email=chosen.email;
+ const label=evidence?(evidence.classification==='named_company_published'?'Named company contact (not independently verified)':evidence.businessDomainMatch?'Published company-domain address':'Published external-domain address'):chosen.kind==='listing_owner_unverified'?'Owner email in source listing (unverified)':chosen.kind==='website_unclassified'?'Website email (source unclassified)':'Company email (listed; unverified)';
  const source=evidence?.source&&url(evidence.source)?' <a target="_blank" rel="noopener noreferrer" href="'+safe(url(evidence.source))+'">evidence ↗</a>':'';
  const pages=evidence?.sourceCount>1?' · '+evidence.sourceCount+' company pages':'';
  const routing=evidence?.mailDomain?.status==='mx_present'?' · Domain has MX mail routing (inbox unverified)':evidence?.mailDomain?.status==='null_mx'?' · Domain explicitly declares no incoming mail':evidence?.mailDomain?.status==='domain_not_found'?' · Domain not found in public DNS':evidence?.mailDomain?.status==='no_mx_observed'?' · No MX observed (delivery unknown)':'';
@@ -142,22 +163,25 @@ function contactCell(x){
   const sourceLinks=(p.sources?.length?p.sources:[p.source]).filter(v=>url(v)).slice(0,3).map(v=>'<a target="_blank" rel="noopener noreferrer" href="'+safe(url(v))+'">source ↗</a>').join(' ');
   return '<strong>'+safe(p.name)+'</strong> <small>('+safe(label)+safe(corroboration)+')</small> '+sourceLinks;
  }).join('<br>')+'<br>':'';
- return (x.owner?'<strong>'+safe(x.owner)+'</strong><br>':'')+team+(email?'<a href="mailto:'+safe(email)+'">'+safe(email)+'</a><br><small>'+safe(label)+pages+safe(routing)+'</small>'+source:'<small>No published email</small>')+'<br><a target="_blank" rel="noopener noreferrer" href="'+safe(searchLink(x))+'">Research contacts ↗</a>'+(state?'<br><button class="secondary" style="padding:5px 8px;margin-top:6px" data-registry="'+safe(key(x))+'">Check '+safe(state)+' filing</button>':'')+(x.publicRegistry?.matches?.length?'<br><small>Possible registry name match: '+safe(x.publicRegistry.matches[0].legalName)+(x.publicRegistry.matches[0].publicRole?' · '+safe(x.publicRegistry.matches[0].publicRole.role)+': '+safe(x.publicRegistry.matches[0].publicRole.name):'')+' (not ownership proof) <a target="_blank" rel="noopener noreferrer" href="'+safe(url(x.publicRegistry.dataset))+'">official source ↗</a></small>':'')+(NPI_HEALTH_NICHES.has(x.niche)?'<br><button class="secondary" style="padding:5px 8px;margin-top:6px" data-nppes="'+safe(key(x))+'">Check federal NPI directory</button>':'')+(x.healthcareRegistry?.matches?.length?'<br><small>CMS Type 2 NPI '+safe(x.healthcareRegistry.matches[0].npi)+' · '+safe(x.healthcareRegistry.matches[0].legalName)+' · '+safe(x.healthcareRegistry.matches[0].specialties.map(t=>t.description).slice(0,2).join(', '))+(x.healthcareRegistry.matches[0].authorizedOfficial?' · Listed official: '+safe(x.healthcareRegistry.matches[0].authorizedOfficial.name)+' ('+safe(x.healthcareRegistry.matches[0].authorizedOfficial.title)+', not necessarily owner)':'')+(x.healthcareRegistry.matches[0].practicePhone?' · Practice phone: '+safe(x.healthcareRegistry.matches[0].practicePhone):'')+' · Not a license check <a target="_blank" rel="noopener noreferrer" href="'+safe(url(x.healthcareRegistry.matches[0].source))+'">CMS source ↗</a></small>':'');
+ return (x.owner?'<strong>'+safe(x.owner)+'</strong><br>':'')+team+(email?'<a href="mailto:'+safe(email)+'">'+safe(email)+'</a><br><small>'+safe(label)+pages+safe(routing)+'</small>'+source:chosen.blockedCount?'<small>No email suggested: published domain explicitly has no mail or does not resolve. Review sources before manually entering an address.</small>':'<small>No published email</small>')+'<br><a target="_blank" rel="noopener noreferrer" href="'+safe(searchLink(x))+'">Research contacts ↗</a>'+(state?'<br><button class="secondary" style="padding:5px 8px;margin-top:6px" data-registry="'+safe(key(x))+'">Check '+safe(state)+' filing</button>':'')+(x.publicRegistry?.matches?.length?'<br><small>Possible registry name match: '+safe(x.publicRegistry.matches[0].legalName)+(x.publicRegistry.matches[0].publicRole?' · '+safe(x.publicRegistry.matches[0].publicRole.role)+': '+safe(x.publicRegistry.matches[0].publicRole.name):'')+' (not ownership proof) <a target="_blank" rel="noopener noreferrer" href="'+safe(url(x.publicRegistry.dataset))+'">official source ↗</a></small>':'')+(NPI_HEALTH_NICHES.has(x.niche)?'<br><button class="secondary" style="padding:5px 8px;margin-top:6px" data-nppes="'+safe(key(x))+'">Check federal NPI directory</button>':'')+(x.healthcareRegistry?.matches?.length?'<br><small>CMS Type 2 NPI '+safe(x.healthcareRegistry.matches[0].npi)+' · '+safe(x.healthcareRegistry.matches[0].legalName)+' · '+safe(x.healthcareRegistry.matches[0].specialties.map(t=>t.description).slice(0,2).join(', '))+(x.healthcareRegistry.matches[0].authorizedOfficial?' · Listed official: '+safe(x.healthcareRegistry.matches[0].authorizedOfficial.name)+' ('+safe(x.healthcareRegistry.matches[0].authorizedOfficial.title)+', not necessarily owner)':'')+(x.healthcareRegistry.matches[0].practicePhone?' · Practice phone: '+safe(x.healthcareRegistry.matches[0].practicePhone):'')+' · Not a license check <a target="_blank" rel="noopener noreferrer" href="'+safe(url(x.healthcareRegistry.matches[0].source))+'">CMS source ↗</a></small>':'');
 }
 
-let selectedDraftLead=null,lastDraft='',lastSocialUrl='',lastDraftMode='';
+let selectedDraftLead=null,lastDraft='',lastSocialUrl='',lastDraftMode='',recipientManuallyEdited=false;
 function recipientEmail(){
- const manual=$('manual-recipient').value.trim();
- const email=manual||String(selectedDraftLead?.email||selectedDraftLead?.enrichedEmails?.[0]||'').trim();
+ const email=$('manual-recipient').value.trim();
  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return '';
  return email;
 }
 function updateRecipient(lead){
- const found=String(lead?.email||lead?.enrichedEmails?.[0]||'').trim();
- $('manual-recipient').value=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(found)?found:'';
- $('recipient-source').textContent=found?'Suggested from business contact research. Verify the address before sending.':'No email found in contact research. Enter a known recipient address manually.';
+ const chosen=preferredLeadContact(lead),found=chosen.email;
+ recipientManuallyEdited=false;
+ $('manual-recipient').value=found;
+ const source=chosen.evidence?.source||'';
+ const routing=chosen.evidence?.mailDomain?.status==='mx_present'?' MX routing exists, but this inbox is not verified.':' Mailbox existence and deliverability are unverified.';
+ $('recipient-source').textContent=found?(chosen.evidence?'Suggested from company-published contact evidence. '+(source?'Source: '+source+'.':'')+routing:'Suggested from an unverified business listing or legacy research. Verify that the address belongs to your intended contact before sending.'):(chosen.blockedCount?'No recipient prefilled: the published email domain reports no inbound mail or does not exist in DNS.':'No email found in contact research.')+' Enter a known address manually if appropriate.';
 }
 $('manual-recipient').addEventListener('input',()=>{
+ recipientManuallyEdited=true;
  $('recipient-source').textContent='Manually edited recipient — not independently verified. Confirm the address belongs to the intended business contact before sending.';
 });
 const TEMPLATE_KEY='leadflow-email-templates-v1';
