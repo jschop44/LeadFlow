@@ -33,7 +33,7 @@ const socialUrl=(value,source)=>{
 };
 const isOrgType=value=>{
  const types=Array.isArray(value)?value:[value];
- return types.some(t=>/^(?:https?:\/\/schema\.org\/)?(?:organization|corporation|localbusiness|[a-z]+(?:business|store|restaurant|agency|office|service|practice|firm|clinic|dentist|attorney))$/i.test(String(t||'')));
+ return types.some(t=>/^(?:https?:\/\/schema\.org\/)?(?:organization|corporation|localbusiness|restaurant|cafeorcoffeeshop|bakery|dentist|physician|store|financialservice|professionalservice|legalservice|accountingservice|realestateagent|travelagency|medicalclinic|healthandbeautybusiness|[a-z]+(?:business|store|restaurant|agency|office|service|practice|firm|clinic|dentist|attorney))$/i.test(String(t||'')));
 };
 const emailRe=/[a-z0-9._%+\-]+@[a-z0-9.-]+\.[a-z]{2,20}/gi;
 const urls=html=>[...html.matchAll(/\bhref\s*=\s*["']([^"'<>\s]{1,1500})["']/gi)].map(x=>entityText(x[1]));
