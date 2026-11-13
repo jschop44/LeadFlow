@@ -14,7 +14,7 @@ export function supportedUSCatalogRecord(record){
  if(record?.usEvidenceKind!=='first_party_location_statement'||!/^First-party published US office: [A-Za-z0-9 ,.-]{5,90}$/.test(evidence))return false;
  try{
   const website=new URL(record?.element?.tags?.website),source=new URL(record.usEvidenceSource);
-  const host=u=>u.hostname.toLowerCase().replace(/^www\\./,'');
+  const host=u=>u.hostname.toLowerCase().replace(/^www\./,'');
   return website.protocol==='https:'&&source.protocol==='https:'&&host(website)===host(source)&&!website.username&&!website.password&&!source.username&&!source.password;
  }catch{return false}
 }
