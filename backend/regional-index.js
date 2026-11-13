@@ -30,6 +30,14 @@ async function download(url){
  catch(error){await reader.cancel().catch(()=>{});throw error;}
  return JSON.parse(gunzipSync(Buffer.concat(chunks),{maxOutputLength:20000000}).toString('utf8'));
 }
+// State-only searches must not silently collapse to a box around a state capital.
+// City queries such as "New York, NY" are intentionally not treated as state-wide.
+export function resolveUSState(area,definitions=regions){
+ const raw=String(area||'').trim().replace(/\s+/g,' ').replace(/,?\s*(?:united states(?: of america)?|usa|u\.s\.a\.|us|u\.s\.)\s*$/i,'').trim().replace(/,$/,'').trim().toLowerCase();
+ if(!raw)return null;
+ if(['washington dc','washington, dc','d.c.','dc'].includes(raw))return definitions.find(r=>r.code==='US-DC')||null;
+ return definitions.find(r=>[r.name.toLowerCase(),r.slug,r.slug.replace(/-/g,' '),r.code.slice(3).toLowerCase()].includes(raw))||null;
+}
 export function createRegionalSearch({load=download,now=Date.now,definitions=regions}={}){
  const cache=new Map(),pending=new Map();
  async function regionData(region){
@@ -43,7 +51,7 @@ export function createRegionalSearch({load=download,now=Date.now,definitions=reg
   }).catch(()=>{if(!saved)return null;const retained={...saved,cached:true,stale:true,until:now()+60000};cache.set(region.slug,retained);return retained;}).finally(()=>pending.delete(region.slug));
   pending.set(region.slug,work);return work;
  }
- return async({lat,lon,bbox,niche})=>{
+ const search=async({lat,lon,bbox,niche})=>{
   if(!Number.isFinite(lat)||!Number.isFinite(lon)||!Array.isArray(bbox)||bbox.length!==4||!bbox.every(Number.isFinite)||typeof niche!=='string')return {elements:[]};
   const [south,north,west,east]=bbox;if(south>north||west>east)return {elements:[]};
   const selected=definitions.filter(r=>containsPoint(r.geometry,lon,lat)).slice(0,2);
@@ -61,4 +69,47 @@ export function createRegionalSearch({load=download,now=Date.now,definitions=reg
   elements.sort((a,b)=>Math.hypot(a.lat-lat,a.lon-lon)-Math.hypot(b.lat-lat,b.lon-lon));
   return {elements:elements.slice(0,250),source:'Published US regional business index',snapshotSources:sources,cached:loaded.some(x=>x?.cached),coverage:'Partial community-contributed listings. Snapshot age and contacts must be reviewed; listing identity is not independently verified.'};
  };
+ // A state search uses the whole state extract, rather than an arbitrary city-sized bbox.
+ // The deterministic city round-robin prevents one large metro from occupying every result.
+ search.statewide=async({area,niche,limit=250}={})=>{
+  const region=resolveUSState(area,definitions);
+  if(!region)return null;
+  const source='OpenStreetMap Geofabrik '+region.name+' extract';
+  const state=await regionData(region);
+  const empty={elements:[],area:region.name,stateCode:region.code,scope:'statewide',source:'Published US regional business index',
+   cached:Boolean(state?.cached),snapshotSources:state?[{region:region.name,generated_at:state.data.generated_at,stale:state.stale||now()-Date.parse(state.data.generated_at)>1209600000}]:[],
+   coverage:'Partial community-contributed listing snapshot; published contact details and niche classification require review.'};
+  if(!state)return {...empty,searchStatus:'provider_unavailable',message:'State index unavailable. This does not imply no businesses exist.'};
+  const groups=new Map();
+  const seen=new Set();
+  let totalMatched=0;
+  for(const row of state.data.records){
+   if(typeof row?.tags?.name!=='string'||!row.tags.name.trim()||row.tags.name.length>240||!['node','way','relation'].includes(row.type)||!Number.isSafeInteger(row.id)||!Array.isArray(row.niches)||!matchesIndexedNiche(row,niche)||!Number.isFinite(row.lat)||!Number.isFinite(row.lon)||!containsPoint(region.geometry,row.lon,row.lat))continue;
+   if(row.tags['addr:country']&&!['US','USA','United States'].includes(row.tags['addr:country']))continue;
+   const identity=row.type+'/'+row.id;if(seen.has(identity))continue;seen.add(identity);
+   const tags=row.tags;
+   const contactQuality=Number(Boolean(tags.website||tags['contact:website']))*4+Number(Boolean(tags.email||tags['contact:email']))*3+Number(Boolean(tags.phone||tags['contact:phone']))*2+Number(Boolean(tags['addr:street']))+Number(Boolean(tags['contact:linkedin']||tags['contact:facebook']));
+   const city=String(tags['addr:city']||'').trim().toLowerCase().slice(0,100)||'~location not listed';
+   const item={...row,sourceAgreement:Array.isArray(row.sourceAgreement)&&row.sourceAgreement.some(x=>typeof x==='string'&&x.trim())?row.sourceAgreement.filter(x=>typeof x==='string'&&x.trim()).slice(0,3):[source],
+    sourceCount:1,classification:'Local',listingVerification:'community_contributed_snapshot',snapshotDate:state.data.generated_at};
+   if(!groups.has(city))groups.set(city,[]);
+   groups.get(city).push({item,contactQuality});
+   totalMatched++;
+  }
+  for(const bucket of groups.values())bucket.sort((a,b)=>b.contactQuality-a.contactQuality||a.item.tags.name.localeCompare(b.item.tags.name));
+  const cities=[...groups.keys()].sort((a,b)=>(b!=='~location not listed')-(a!=='~location not listed')||a.localeCompare(b));
+  const cap=Math.max(1,Math.min(250,Number.isSafeInteger(limit)?limit:250));
+  const selected=[];
+  for(let offset=0;selected.length<cap;offset++){
+   let any=false;
+   for(const city of cities){
+    const value=groups.get(city)[offset];
+    if(value){selected.push(value.item);any=true;if(selected.length===cap)break;}
+   }
+   if(!any)break;
+  }
+  return {...empty,elements:selected,totalMatched,cityCoverage:cities.length,
+   searchStatus:totalMatched?'ok':'no_matches',message:totalMatched?'Statewide index results cover multiple listed cities when available; not a complete business census.':'No qualifying businesses found in this partial published state index.'};
+ };
+ return search;
 }
