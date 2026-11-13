@@ -1,10 +1,17 @@
 name: Refresh Maryland business index
 on:
-  # Source PBF downloads run only on a bounded weekly schedule or an
-  # explicitly authorized manual dispatch, never for every feature branch.
+  # Refresh once when the importer changes on main, not on every app push.
+  # Normal updates remain on the free weekly schedule or manual dispatch.
+  push:
+    branches: [main]
+    paths:
+      - scripts/build_maryland_index.py
   workflow_dispatch:
   schedule:
     - cron: '15 7 * * 0'
+concurrency:
+  group: maryland-attributed-index
+  cancel-in-progress: false
 permissions:
   contents: write
 jobs:
@@ -44,17 +51,28 @@ jobs:
           assert 'Financial advisors' in niches, 'Financial advisor seed records missing'
           assert len(niches)>=3, 'Statewide import must contain at least three distinct business niches'
           assert len(records)>10, 'Statewide import must add new sourced businesses before publishing'
+          import gzip
+          regional=json.loads(gzip.decompress(open('backend/data/us-regional/maryland.json.gz','rb').read()))
+          assert regional==data, 'Plain and compressed Maryland indexes must come from one actual source extraction'
+          pizza=[r for r in records if 'Pizza restaurants' in r.get('niches',[])]
+          assert pizza, 'No named restaurant or cuisine-backed pizza listings in refreshed public source'
+          assert all(r.get('tags',{}).get('amenity') in ('restaurant','fast_food') and
+                     ('pizza' in r.get('tags',{}).get('cuisine','').lower() or
+                      'pizza' in r.get('tags',{}).get('name','').lower()) for r in pizza)
+          print('PIZZA_RESTAURANTS='+str(len(pizza)))
           PY
       - name: Upload index artifact even if repository push fails
         uses: actions/upload-artifact@v4
         with:
           name: maryland-business-index
-          path: backend/data/maryland-businesses.json
+          path: |
+            backend/data/maryland-businesses.json
+            backend/data/us-regional/maryland.json.gz
           if-no-files-found: error
           retention-days: 7
       - name: Commit real source records
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add backend/data/maryland-businesses.json
+          git add backend/data/maryland-businesses.json backend/data/us-regional/maryland.json.gz
           git diff --cached --quiet || (git commit -m "Refresh Maryland OpenStreetMap business index" && git push)
