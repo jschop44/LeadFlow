@@ -16,6 +16,8 @@ Use **Check website** in the lead row. The backend calls the Google PageSpeed In
 
 HubSpot provides CRM record storage and management instead of LeadFlow building an entire second CRM. Use **Send to HubSpot** beside a lead. A confirmation appears before any data is transferred.
 
+**No HubSpot API credential?** Choose **HubSpot import CSV** from Lead discovery → More discovery tools. LeadFlow exports website-linked companies with HubSpot-friendly property names and formula-injection-safe CSV cells; import it manually using HubSpot's built-in import wizard. This path does not require a Render secret or contact sync.
+
 1. Create or use a supported HubSpot Project **Service Key** for system-to-system integration, or an existing authorized app token. New legacy private app creation was retired in autumn 2026; follow current HubSpot developer guidance. Make sure the credential can read and write *companies* (appropriate CRM companies scopes).
 2. In Render, set `HUBSPOT_ACCESS_TOKEN` on the **leadflow-research-api** service. Never paste the token into GitHub, the browser dashboard, logs, or a URL.
 3. Deploy an image built from verified LeadFlow `main` and confirm `GET /health` has `integrations.hubspot.configured: true`.
