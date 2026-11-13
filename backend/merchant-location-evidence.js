@@ -28,8 +28,8 @@ export function merchantProductPage(record,niche){
  const website=record?.element?.tags?.website;
  // Distinct verified product categories at the same merchant need distinct
  // pages. Never let a sauna lookup overwrite red-light product evidence.
- const candidate=typeof niche==='string'&&record?.productEvidencePages?.[niche];
- const source=candidate||record?.productEvidencePage;
+ const hasCategoryPages=record?.productEvidencePages&&typeof record.productEvidencePages==='object';
+ const source=typeof niche==='string'&&hasCategoryPages?record.productEvidencePages[niche]:record?.productEvidencePage;
  return sameOfficialHost(website,source)?source:website;
 }
 export function sameMerchantHost(website,source){return sameOfficialHost(website,source)}
