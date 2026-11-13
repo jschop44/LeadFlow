@@ -466,18 +466,33 @@ async function verifyProductMerchants(niche){
      supportedUSCatalogRecord(previous)&&previous.productEvidencePage)continue;
   try{
    // Shipping to the US does not establish a US business location.
-   if(!merchant.officePage||!sameMerchantHost(merchant.website,merchant.officePage))continue;
+   if(!merchant.officePage||!sameMerchantHost(merchant.website,merchant.officePage)){
+    console.log('Merchant qualification',JSON.stringify({domain,stage:'office_source_unavailable'}));
+    continue;
+   }
    const location=firstPartyMerchantLocation(merchant,await get(merchant.officePage,merchantSourceMaxBytes(merchants,merchant.officePage)));
-   if(!location)continue;
+   if(!location){
+    console.log('Merchant qualification',JSON.stringify({domain,stage:'official_office_phrase_not_observed'}));
+    continue;
+   }
    let inspected=await inspectBusinessWebsite(merchant.website);
    if(inspected.classification!=='Online'&&merchant.productPage&&sameMerchantHost(merchant.website,merchant.productPage)){
     try{
      const html=await get(merchant.productPage,merchantSourceMaxBytes(merchants,merchant.productPage));
      if(productTextMatches(html,'add to cart'))inspected={classification:'Online',platform:'Not verified',
       classificationEvidence:'Published Add to Cart controls on official product collection'};
-    }catch{}
+    }catch(error){
+     // Limit diagnostics to known error classes; never log response HTML, URLs,
+     // user-provided keywords, headers, tokens or private credentials.
+     const reason=String(error?.message||'');
+     console.log('Merchant qualification',JSON.stringify({domain,stage:'product_collection_unavailable',
+      reason:/Page too large/i.test(reason)?'size_limit':/Redirect disallowed/i.test(reason)?'redirect':/HTTP 404/i.test(reason)?'not_found':/abort|timeout/i.test(reason)?'timeout':'request_failed'}));
+    }
    }
-   if(inspected.classification!=='Online')continue;
+   if(inspected.classification!=='Online'){
+    console.log('Merchant qualification',JSON.stringify({domain,stage:'public_ecommerce_signal_not_observed'}));
+    continue;
+   }
    const productEvidencePage=merchant.productPage&&sameMerchantHost(merchant.website,merchant.productPage)?merchant.productPage:undefined;
    const element={type:'node',id:'merchant-'+domain,tags:{name:merchant.name,website:merchant.website},
     classification:'Online',platform:inspected.platform,classificationEvidence:inspected.classificationEvidence,...location};
@@ -486,7 +501,12 @@ async function verifyProductMerchants(niche){
     productEvidencePage,...location,element};
    await catalogStore.save(row);
    onlineCatalog.set(domain,row);
-  }catch(error){console.warn('Merchant first-party verification unavailable:',domain,error.message)}
+   console.log('Merchant qualification',JSON.stringify({domain,stage:'catalog_evidence_persisted',locationKind:location.usEvidenceKind}));
+  }catch(error){
+   const reason=String(error?.message||'');
+   console.warn('Merchant qualification',JSON.stringify({domain,stage:'official_source_unavailable',
+    reason:/Page too large/i.test(reason)?'size_limit':/Redirect disallowed/i.test(reason)?'redirect':/HTTP 404/i.test(reason)?'not_found':/abort|timeout/i.test(reason)?'timeout':'request_failed'}));
+  }
  }
 }
 async function searchIndexedOnlineBusinesses(niche){
