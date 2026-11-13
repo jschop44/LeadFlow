@@ -66,7 +66,8 @@ test('financial advisor searches reject unrelated healthcare, mortgage and accou
  assert.equal(matchesIndexedNiche(labeled({name:'Crosscountry Mortgage',office:'financial'}),'Financial advisors'),false);
  assert.equal(matchesIndexedNiche(labeled({name:'Barwick CPA',office:'financial'}),'Financial advisors'),false);
  assert.equal(matchesIndexedNiche(labeled({name:'Independent CFP',description:'Certified financial planner for families'}),'Financial advisors'),true);
- assert.equal(matchesIndexedNiche(labeled({name:'Janney',office:'financial'}),'Financial advisors'),true);
+ assert.equal(matchesIndexedNiche(labeled({name:'Janney',office:'financial'}),'Financial advisors'),false);
+ assert.equal(matchesIndexedNiche(labeled({name:'Janney',office:'financial',services:'Investment advisory and financial planning'}),'Financial advisors'),true);
  assert.equal(matchesIndexedNiche(labeled({name:'RBC Wealth Management',office:'insurance'}),'Financial advisors'),true);
 });
 
