@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {firstPartyMerchantLocation,merchantProductPage,sameMerchantHost} from '../merchant-location-evidence.js';
+import {firstPartyMerchantLocation,merchantProductPage,sameMerchantHost,merchantSourceMaxBytes} from '../merchant-location-evidence.js';
 import {supportedUSCatalogRecord,productTextMatches} from '../product-evidence.js';
 
 const hooga={name:'Hooga',website:'https://hoogahealth.com/',
@@ -43,4 +43,15 @@ test('do not turn unsupported US shipping or labels into business-location verif
  assert.equal(supportedUSCatalogRecord({usEvidence:'First-party published US office: New Berlin, WI, USA',
   usEvidenceKind:'first_party_location_statement',element:{tags:{website:hooga.website}}}),false);
  assert.equal(supportedUSCatalogRecord({usEvidence:'US mapped business record'}),true);
+});
+
+test('large merchant HTML budget only applies to exact enumerated first-party source pages',()=>{
+ const curated=[hooga];
+ assert.equal(merchantSourceMaxBytes(curated,hooga.officePage),2_000_000);
+ assert.equal(merchantSourceMaxBytes(curated,hooga.productPage),2_000_000);
+ assert.equal(merchantSourceMaxBytes(curated,'https://hoogahealth.com/pages/other'),350_000);
+ assert.equal(merchantSourceMaxBytes(curated,'https://hoogahealth.com.evil.example/pages/about'),350_000);
+ assert.equal(merchantSourceMaxBytes(curated,'http://hoogahealth.com/pages/about'),350_000);
+ assert.equal(merchantSourceMaxBytes(curated,'https://some-merchant.example/products'),350_000);
+ assert.equal(merchantSourceMaxBytes(undefined,hooga.officePage),350_000);
 });
