@@ -63,3 +63,47 @@ test('deduplicates simultaneous CMS queries while giving independent caller valu
  assert.equal(calls,1);
  a.matches[0].legalName='Changed';assert.equal(b.matches[0].legalName,'Harbor Dental Group LLC');
 });
+
+test('exact CMS published DBA is associated with its distinct legal name, never invented owner',async()=>{
+ const published={...sample,basic:{...sample.basic,organization_name:'Harbor Healthcare Holdings LLC'},
+  other_names:[{organization_name:'Harbor Dental Group LLC',type:'Doing Business As'}]};
+ const lookup=createNppesLookup({fetcher:async()=>Response.json({result_count:1,results:[published]})});
+ const result=await lookup({name:'Harbor Dental Group LLC',state:'MD',city:'Baltimore',niche:'Dental practices'});
+ assert.equal(result.matches.length,1);
+ assert.equal(result.matches[0].legalName,'Harbor Healthcare Holdings LLC');
+ assert.equal(result.matches[0].matching.nameUsed,'Harbor Dental Group LLC');
+ assert.equal(result.matches[0].matching.organizationName,'exact_registered_dba');
+ assert.equal(result.matches[0].authorizedOfficial.verifiedOwner,false);
+});
+test('former legal names are NOT considered proof of a currently operating trade name',async()=>{
+ const prior={...sample,basic:{...sample.basic,organization_name:'New Current Business LLC'},
+  other_names:[{organization_name:'Harbor Dental Group LLC',type:'Former Legal Business Name'}]};
+ const lookup=createNppesLookup({fetcher:async()=>Response.json({result_count:1,results:[prior]})});
+ const result=await lookup({name:'Harbor Dental Group LLC',state:'MD',city:'Baltimore',niche:'Dental practices'});
+ assert.equal(result.status,'no_exact_organization_match');
+});
+test('exact registered other names are labeled as current-use unknown, not legal-name proof',async()=>{
+ const registered={...sample,basic:{...sample.basic,organization_name:'Regional Dental Associates LLC'},
+  other_names:[{organization_name:'Harbor Dental Group LLC',type:'Other Name'}]};
+ const lookup=createNppesLookup({fetcher:async()=>Response.json({result_count:1,results:[registered]})});
+ const result=await lookup({name:'Harbor Dental Group LLC',state:'MD',city:'Baltimore',niche:'Dental practices'});
+ assert.equal(result.matches[0].matching.organizationName,'exact_registered_other_name');
+ assert.equal(result.matches[0].matching.nameCurrentStatus,'current_use_unknown');
+});
+test('published additional practice site can match a specific city without returning full addresses',async()=>{
+ const multi={...sample,addresses:[{address_purpose:'LOCATION',city:'Frederick',state:'MD',telephone_number:'301-555-0141'}],
+  practiceLocations:[{address_1:'Not included in result',city:'Baltimore',state:'MD',telephone_number:'410-555-0132'}]};
+ const lookup=createNppesLookup({fetcher:async()=>Response.json({result_count:1,results:[multi]})});
+ const result=await lookup({name:'Harbor Dental Group LLC',state:'MD',city:'Baltimore',niche:'Dental practices'});
+ assert.equal(result.matches.length,1);
+ assert.equal(result.matches[0].matching.practiceSource,'additional_practice');
+ assert.equal(result.matches[0].practicePhone,'410-555-0132');
+ assert.equal(JSON.stringify(result).includes('Not included in result'),false);
+});
+test('similar but not exact registered names remain unmatched',async()=>{
+ const provider={...sample,basic:{...sample.basic,organization_name:'Harbor Dental Group International LLC'},
+  other_names:[{organization_name:'Harbor Dental Group Inc',type:'Doing Business As'}]};
+ const lookup=createNppesLookup({fetcher:async()=>Response.json({result_count:1,results:[provider]})});
+ const result=await lookup({name:'Harbor Dental Group LLC',state:'MD',city:'Baltimore',niche:'Dental practices'});
+ assert.equal(result.matches.length,0);
+});

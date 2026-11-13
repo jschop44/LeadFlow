@@ -8,17 +8,17 @@ LeadFlow integrates the **U.S. Centers for Medicare & Medicaid Services** NPPES 
 
 The healthcare lead contact panel offers **Check federal NPI directory**. This requires the existing private LeadFlow backend token and performs a user-initiated, scoped query for the displayed business name, US state and city when known.
 
-It queries the official `https://npiregistry.cms.hhs.gov/api/?version=2.1` API with `enumeration_type=NPI-2` and at most 20 results. Only organization records (Type 2) with exactly matching normalized organization names and public matching practice locations are returned. It does not search Type 1 individual provider records.
+It queries the official `https://npiregistry.cms.hhs.gov/api/?version=2.1` API with `enumeration_type=NPI-2` and at most 20 results. Only organization records (Type 2) with exactly matching normalized **legal names or specifically published alternative names**, and public matching practice locations, are returned. It distinguishes legal-name, DBA, and other-name matches; a **former legal name is excluded** because it does not prove a currently trading business identity. Either the primary practice location or a CMS-published additional practice site can match a specified city/state. It does not search Type 1 individual provider records.
 
 For a possible match, it displays:
 
-- Published legal organization name and unique NPI number.
+- Published legal organization name and unique NPI number, with a separately labeled exact DBA or other registered-name match when applicable. Other registered names have unknown current-use status.
 - Public practice-location telephone number, city and state.
 - Organization specialty/taxonomy descriptions.
 - The name and position of the record's authorized official, if publicly included. **This is not necessarily the business owner**.
 - A direct link to the official CMS query for the NPI and the registry check date.
 
-The NPI match is not silently copied into owner/email fields. A matching name does not independently prove the listed website, location or organization are the same business, and it is not a credentialing, licensing or employment-status check.
+The NPI match is not silently copied into owner/email fields. A DBA may refer to a business operating under a name different from its legal registrant, and must be independently reconciled with the actual lead. A matching name does not independently prove the listed website, location or organization are the same business, and it is not a credentialing, licensing or employment-status check.
 
 ## Safe and efficient use of free public data
 
