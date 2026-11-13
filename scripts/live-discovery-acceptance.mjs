@@ -101,7 +101,7 @@ try{
  for(const item of searches){const result=await probe(item);report.cases.push(result);console.log(JSON.stringify({case:result.case,status:result.status,count:result.count,limitations:result.limitations}))}
  const pizza=report.cases.find(item=>item.case==='Local pizza businesses');
  if(report.sourceIndex.available&&report.sourceIndex.records>=100&&pizza?.count===0){
-  report.discoveryFailure='An available attributed Maryland source snapshot was loaded, but Bel Air pizza discovery returned no qualifying businesses.';
+  report.blocker='An available attributed Maryland source snapshot was loaded, but Bel Air pizza discovery returned no qualifying businesses.';
   process.exitCode=1;
  }
  report.browser=await browserCheck();
