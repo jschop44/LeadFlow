@@ -16,8 +16,8 @@ export function createMailDomainInspector({resolver=dns,now=Date.now,maxDomains=
  const cache=new Map(),pending=new Map();
  async function check(domain){
   const stored=cache.get(domain);
-  if(stored?.expires>now())return stored.value;
-  if(pending.has(domain))return pending.get(domain);
+  if(stored?.expires>now())return structuredClone(stored.value);
+  if(pending.has(domain))return structuredClone(await pending.get(domain));
   const promise=(async()=>{
    let status='dns_unavailable',exchanges=0,description='Public mail-routing lookup unavailable; mailbox status unknown.';
    let timer;
@@ -44,7 +44,7 @@ export function createMailDomainInspector({resolver=dns,now=Date.now,maxDomains=
    return value;
   })();
   pending.set(domain,promise);
-  try{return await promise;}finally{pending.delete(domain)}
+  try{return structuredClone(await promise);}finally{pending.delete(domain)}
  }
  return async function inspect(emails=[]){
   const names=[...new Set((Array.isArray(emails)?emails:[]).map(x=>domainOf(typeof x==='string'?x:x?.email)).filter(Boolean))].slice(0,maxDomains);
