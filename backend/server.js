@@ -1,5 +1,6 @@
 import {createRegionalSearch,matchesIndexedNiche,resolveUSState} from './regional-index.js';
 import {supportsCatalogNiche} from './catalog-niche-evidence.js';
+import {productTextMatches,supportedUSCatalogRecord} from './product-evidence.js';
 import {createSearchRunner} from './search-execution.js';
 import {createHostPacer} from './provider-pacing.js';
 import {serveFrontend} from './frontend.js';
@@ -480,6 +481,7 @@ async function lookupMerchantDomain(raw){
  return {elements:[element],niche:domain,source:'Direct website lookup',searchStatus:info.classification==='Online'?'ok':'unverified',
   catalogSize:onlineCatalog.size,message:info.classification==='Online'?'Online storefront evidence detected.':'Website located, but ecommerce evidence could not be verified; the business is shown for review.'};
 }
+const productEvidenceCache=new Map();
 async function searchProductKeyword(raw){
  const rawInput=String(raw||'').trim();
  if(/^(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+\/?$/i.test(rawInput))return lookupMerchantDomain(rawInput);
@@ -489,19 +491,23 @@ async function searchProductKeyword(raw){
  if(group&&productMerchantSources[group.niche])await verifyProductMerchants(group.niche);
  const tokens=query.split(' ').filter(w=>w.length>2);
  const records=[...onlineCatalog.values()].filter(r=>['Online','Local + Online'].includes(r.classification));
- const direct=records.filter(r=>group&&r.niches?.includes(group.niche)||tokens.every(t=>(r.element?.tags?.name+' '+r.element?.tags?.description+' '+(r.niches||[]).join(' ')).toLowerCase().includes(t)));
- const matches=[...direct];
- // Only match additional catalog records when the public storefront itself mentions the product.
- const candidates=records.filter(r=>!direct.includes(r)).slice(0,120);
+ const matches=[];
+ // Old niche assignments are candidate hints, not evidence of a product or US location.
+ const candidates=records.filter(supportedUSCatalogRecord).sort((a,b)=>Number(Boolean(group&&b.niches?.includes(group.niche)))-Number(Boolean(group&&a.niches?.includes(group.niche)))).slice(0,24);
  let nextProduct=0;await Promise.all(Array.from({length:6},async()=>{while(nextProduct<candidates.length){const r=candidates[nextProduct++];
-  try{const html=(await get(r.element?.tags?.website||'')).toLowerCase().replace(/<[^>]*>/g,' ').replace(/\s+/g,' ');
-   if(tokens.every(t=>html.includes(t)))matches.push(r)
+  try{const website=r.element?.tags?.website||'',key=r.domain+'|'+query;
+   let evidence=productEvidenceCache.get(key);
+   if(!evidence||Date.now()-evidence.retrievedAt>3600000){
+    evidence={matches:productTextMatches(await get(website),query),sourceUrl:website,retrievedAt:Date.now(),method:'public_visible_product_phrase'};
+    productEvidenceCache.set(key,evidence);while(productEvidenceCache.size>200)productEvidenceCache.delete(productEvidenceCache.keys().next().value);
+   }
+   if(evidence.matches)matches.push({...r,element:{...r.element,productEvidence:evidence}})
   }catch{}
  }}));
  const unique=[...new Map(matches.map(r=>[r.domain,r])).values()].slice(0,150);
  return {elements:unique.map(r=>({...r.element,sourceAgreement:['Inspected online storefront','Product keyword match']})),
   niche:query,source:'LeadFlow product keyword search',searchStatus:unique.length?'ok':'no_verified_matches',
-  catalogSize:onlineCatalog.size,message:unique.length?'Matching storefronts from inspected public websites.':'No verified storefront matches yet. This search covers the current catalog and does not claim to index every Shopify store.'};
+  catalogSize:onlineCatalog.size,message:unique.length?'Matching storefronts with published product wording and US business-source evidence.':'No qualifying matches in this bounded catalog inspection. Product labels and US shipping alone do not verify product availability or a US business location.'};
 }
 async function searchOnlineBusinesses(niche){
  if(!onlineNicheTerms[niche]&&!discoveryTerms[niche])throw Error('Unsupported niche');
