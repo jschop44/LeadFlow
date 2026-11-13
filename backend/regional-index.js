@@ -36,7 +36,7 @@ export function resolveUSState(area,definitions=regions){
  const raw=String(area||'').trim().replace(/\s+/g,' ').replace(/,?\s*(?:united states(?: of america)?|usa|u\.s\.a\.|us|u\.s\.)\s*$/i,'').trim().replace(/,$/,'').trim().toLowerCase();
  if(!raw)return null;
  if(['washington dc','washington, dc','d.c.','dc'].includes(raw))return definitions.find(r=>r.code==='US-DC')||null;
- return definitions.find(r=>[r.name.toLowerCase(),r.slug.replace(/-/g,' '),r.code.slice(3).toLowerCase()].includes(raw))||null;
+ return definitions.find(r=>[r.name.toLowerCase(),r.slug,r.slug.replace(/-/g,' '),r.code.slice(3).toLowerCase()].includes(raw))||null;
 }
 export function createRegionalSearch({load=download,now=Date.now,definitions=regions}={}){
  const cache=new Map(),pending=new Map();
