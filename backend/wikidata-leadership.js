@@ -16,7 +16,12 @@ export function verifiedWikidataPeople(rows,website){
   if(role==='Owner'&&row.personType?.value!=='Human')continue;
   const person=row.person?.value||'';
   if(!/^https?:\/\/www\.wikidata\.org\/entity\/Q\d+$/.test(person))continue;
-  if(!found.some(x=>x.name===name&&x.role===role))found.push({name,role,source:entity,independentSource:'Wikidata',matchedWebsite:official});
+  // Wikidata's P127 can mean a past stake or a small holding even without
+  // an end qualifier. Do not present it as verified current business ownership.
+  const publicRole=role==='Owner'?'Unverified ownership claim':role;
+  if(!found.some(x=>x.name===name&&x.role===publicRole))found.push({name,role:publicRole,
+   ...(role==='Owner'?{evidenceType:'wikidata_p127_public_claim',ownershipStatus:'current_control_unknown'}:{}),
+   source:entity,independentSource:'Wikidata',matchedWebsite:official});
  }
  return found.slice(0,15)
 }
