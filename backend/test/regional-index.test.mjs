@@ -56,3 +56,22 @@ test('insurance listings require explicit advisory evidence before becoming fina
  assert.equal(matchesIndexedNiche({...agency,tags:{...agency.tags,services:'Financial planning and retirement advisory'}},'Financial advisors'),true);
  assert.equal(matchesIndexedNiche({...agency,tags:{name:'Synthetic advisory firm',office:'financial'}},'Financial advisors'),true);
 });
+
+
+test('financial advisor searches reject unrelated healthcare, mortgage and accounting listings even with broad source niche labels',()=>{
+ const labeled=tags=>({niches:['Financial advisors'],tags});
+ assert.equal(matchesIndexedNiche(labeled({name:"Children's Heart Institute",office:'healthcare'}),'Financial advisors'),false);
+ assert.equal(matchesIndexedNiche(labeled({name:'IQL Behavioral Health Services'}),'Financial advisors'),false);
+ assert.equal(matchesIndexedNiche(labeled({name:'Crosscountry Mortgage',office:'financial'}),'Financial advisors'),false);
+ assert.equal(matchesIndexedNiche(labeled({name:'Barwick CPA',office:'financial'}),'Financial advisors'),false);
+ assert.equal(matchesIndexedNiche(labeled({name:'Independent CFP',description:'Certified financial planner for families'}),'Financial advisors'),true);
+ assert.equal(matchesIndexedNiche(labeled({name:'Janney',office:'financial'}),'Financial advisors'),true);
+ assert.equal(matchesIndexedNiche(labeled({name:'RBC Wealth Management',office:'insurance'}),'Financial advisors'),true);
+});
+
+test('pizza restaurant identification requires restaurant and pizza evidence, not a vague food-related name',()=>{
+ assert.equal(matchesIndexedNiche({tags:{name:'Pizzeria',amenity:'restaurant',cuisine:'pizza;italian'},niches:[]},'Pizza restaurants'),true);
+ assert.equal(matchesIndexedNiche({tags:{name:'Mario Pizza',amenity:'fast_food'},niches:[]},'Pizza restaurants'),true);
+ assert.equal(matchesIndexedNiche({tags:{name:'Pizza supply warehouse',shop:'supermarket'},niches:['Pizza restaurants']},'Pizza restaurants'),false);
+ assert.equal(matchesIndexedNiche({tags:{name:'Fruit bowl café',amenity:'restaurant',cuisine:'vegetarian'},niches:['Pizza restaurants']},'Pizza restaurants'),false);
+});
