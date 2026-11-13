@@ -46,6 +46,7 @@ test('category-specific product evidence stays first party even when same mercha
  }};
  assert.equal(merchantProductPage(row,'Red light therapy devices'),red);
  assert.equal(merchantProductPage(row,'Sauna blankets'),sauna);
+ assert.equal(merchantProductPage(row,'Skin-care devices'),website,'missing category must not inherit another category proof');
  assert.equal(merchantProductPage(row),red,'old single-niche records remain readable');
  assert.equal(merchantProductPage({...row,productEvidencePages:{'Sauna blankets':'https://evil.example/shop'}},'Sauna blankets'),website);
  assert.equal(merchantProductPage({...row,productEvidencePages:{'Sauna blankets':'http://hoogahealth.com/shop'}},'Sauna blankets'),website);
