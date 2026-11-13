@@ -1,5 +1,6 @@
 import {createRegionalSearch,matchesIndexedNiche,resolveUSState} from './regional-index.js';
 import {createSearchRunner} from './search-execution.js';
+import {createHostPacer} from './provider-pacing.js';
 import {serveFrontend} from './frontend.js';
 import {createHealthProbe} from './health-probe.js';
 import {mapConcurrent,createResearchRunner} from './research-execution.js';
@@ -236,7 +237,15 @@ if(businessIndex.size===0)await refreshSourceSnapshot();
 setInterval(refreshSourceSnapshot,6*60*60*1000).unref();
 const searchCache=new Map();
 const nicheTags={'Financial advisors':'["office"~"financial_advisor|financial|investment|insurance"]','Real estate agents':'["office"="estate_agent"]','Accountants':'["office"="accountant"]','Insurance agencies':'["office"="insurance"]','Business coaches':'["office"="consulting"]','Marketing agencies':'["office"="advertising"]','Fitness coaches':'["leisure"="fitness_centre"]','Dental practices':'["amenity"="dentist"]','Med spas':'["beauty"="spa"]','Nutritionists':'["healthcare"="nutrition_counselling"]','Chiropractors':'["healthcare"="chiropractor"]','Wellness clinics':'["healthcare"="clinic"]','Dating coaches':'["name"~"dating coach|dating consultant",i]','Matchmakers':'["name"~"matchmak",i]','Couples counselors':'["healthcare"="psychotherapist"]','Wedding planners':'["office"="event_planner"]','Relationship coaches':'["name"~"relationship coach|relationship therap",i]'};
-async function fetchJSON(url,options={}){const r=await fetch(url,{...options,signal:options.signal||AbortSignal.timeout(18000),headers:{'user-agent':'LeadFlowBusinessDiscovery/1.0 (contact: leadflow project)','accept':'application/json',...(options.headers||{})}});if(!r.ok)throw Error('Public listing provider returned '+r.status);return r.json()}
+const nominatimRequests=createHostPacer({minIntervalMs:1100,ttlMs:6*60*60*1000});
+async function fetchJSON(url,options={}){
+ const retrieve=async()=>{
+  const r=await fetch(url,{...options,signal:options.signal||AbortSignal.timeout(18000),headers:{'user-agent':'LeadFlowBusinessDiscovery/1.0 (contact: leadflow project)','accept':'application/json',...(options.headers||{})}});
+  if(!r.ok)throw Error('Public listing provider returned '+r.status);
+  return r.json();
+ };
+ return new URL(url).hostname==='nominatim.openstreetmap.org'?nominatimRequests(url,retrieve):retrieve();
+}
 async function nominatimFallback(area,niche){const terms={'Financial advisors':'financial advisor','Real estate agents':'real estate agency','Accountants':'accountant','Insurance agencies':'insurance agency','Business coaches':'business consultant','Marketing agencies':'marketing agency','Fitness coaches':'fitness center','Dental practices':'dentist','Med spas':'spa','Nutritionists':'nutritionist','Chiropractors':'chiropractor','Wellness clinics':'clinic','Dating coaches':'dating service','Matchmakers':'matchmaking','Couples counselors':'counselor','Wedding planners':'wedding planner','Relationship coaches':'counselor'};const term=terms[niche]||niche;const q=term+' near '+area+', United States';try{const data=await fetchJSON('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&extratags=1&limit=40&q='+encodeURIComponent(q));return data.filter(x=>x.display_name).map(x=>({type:x.osm_type||'place',id:x.osm_id||x.place_id,lat:Number(x.lat),lon:Number(x.lon),tags:{name:x.name||x.display_name.split(',')[0],website:x.extratags?.website||'',phone:x.extratags?.phone||'',['addr:city']:x.address?.city||x.address?.town||''},sourceAgreement:['Nominatim search'],sourceCount:1,mlScore:0}))}catch{return []}}
 const regionalSearch=createRegionalSearch();
 async function searchBusinesses(area,niche){area=String(area||'').trim().slice(0,120);if(area.length<2||!nicheTags[niche])throw Error('Enter a valid city or state and niche');const zipMatch=area.match(/(?:^|\D)(\d{5})(?:\D|$)/);const key=(area+'|'+niche).toLowerCase(),cached=searchCache.get(key);if(cached&&Date.now()-cached.at<30000&&cached.result.catalogSize===onlineCatalog.size)return {...cached.result,cached:true};// State-only requests use the complete published state index, not Nominatim's
