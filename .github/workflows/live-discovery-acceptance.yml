@@ -47,6 +47,8 @@ jobs:
       - run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.56.1
       - run: npx playwright install --with-deps chromium
       - name: Collect real public discovery and synthetic browser pagination evidence
+        env:
+          LEADFLOW_EXPECTED_REVISION: ${{ github.sha }}
         run: node scripts/live-discovery-acceptance.mjs
       - name: Preserve desktop, phone and source availability evidence
         if: always()
