@@ -23,3 +23,12 @@ test('public frontend uses only the exact Pages OAuth return destination, not an
  assert.match(server,/const PAGES_ORIGIN='https:\/\/jschop44\.github\.io'/);
  assert.doesNotMatch(server,/\.endsWith\(['"]\.github\.io/);
 });
+
+test('unconfigured Pages is an explicit nonfatal no-publish state until owner enables GitHub Pages',()=>{
+ assert.match(workflow,/id:\s*pages_ready/);
+ assert.match(workflow,/gh api "repos\/\$GITHUB_REPOSITORY\/pages"/);
+ assert.match(workflow,/enabled=false/);
+ assert.match(workflow,/Settings > Pages > Source: GitHub Actions/);
+ assert.equal((workflow.match(/if: steps\.pages_ready\.outputs\.enabled == 'true'/g)||[]).length,3);
+ assert.doesNotMatch(workflow,/enablement: true/);
+});

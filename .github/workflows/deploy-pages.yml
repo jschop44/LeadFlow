@@ -27,11 +27,23 @@ jobs:
           install -m 644 index.html _site/index.html
           test "$(find _site -type f | wc -l)" -eq 1
           test -s _site/index.html
+      - name: Check whether Pages was enabled by repository owner
+        id: pages_ready
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh api "repos/$GITHUB_REPOSITORY/pages" >/dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::GitHub Pages is not enabled or cannot be inspected. Owner must enable Settings > Pages > Source: GitHub Actions before using the free alternate frontend."
+          fi
       - uses: actions/configure-pages@v5
-        with:
-          enablement: true
+        if: steps.pages_ready.outputs.enabled == 'true'
       - uses: actions/upload-pages-artifact@v3
+        if: steps.pages_ready.outputs.enabled == 'true'
         with:
           path: _site
       - id: deployment
+        if: steps.pages_ready.outputs.enabled == 'true'
         uses: actions/deploy-pages@v4
