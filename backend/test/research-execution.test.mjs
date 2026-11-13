@@ -41,3 +41,14 @@ test('actual enrichment runs allowed pages concurrently and retains partial evid
  assert.equal(result.sources[0].url,'https://example.org/');
  assert.ok(!visited.some(url=>url.endsWith('/team')));assert.equal(result.emails.length,7);
 });
+
+test('successful public-contact research is cached, bounded and returned as an isolated snapshot',async()=>{
+ let clock=0,calls=0;
+ const run=createResearchRunner(async()=>({emails:['support@ridgeworks.com'],people:[]}),2,{now:()=>clock,cacheTtlMs:1800000});
+ const first=await run('https://ridgeworks.com');first.emails.push('fake');
+ const cached=await run('https://ridgeworks.com');assert.equal(cached.cached,true);
+ assert.deepEqual(cached.emails,['support@ridgeworks.com']);
+ clock+=1800001;
+ const fresh=await run('https://ridgeworks.com');
+ assert.equal(fresh.cached,undefined);assert.deepEqual(fresh.emails,['support@ridgeworks.com']);
+});
