@@ -54,7 +54,8 @@ test('insurance listings require explicit advisory evidence before becoming fina
  assert.equal(matchesIndexedNiche(agency,'Financial advisors'),false);
  assert.equal(matchesIndexedNiche(agency,'Insurance agencies'),true);
  assert.equal(matchesIndexedNiche({...agency,tags:{...agency.tags,services:'Financial planning and retirement advisory'}},'Financial advisors'),true);
- assert.equal(matchesIndexedNiche({...agency,tags:{name:'Synthetic advisory firm',office:'financial'}},'Financial advisors'),true);
+ assert.equal(matchesIndexedNiche({...agency,tags:{name:'Synthetic advisory firm',office:'financial'}},'Financial advisors'),false);
+ assert.equal(matchesIndexedNiche({...agency,tags:{name:'Edward Jones',office:'financial_advisor'}},'Financial advisors'),true);
 });
 
 
@@ -65,7 +66,8 @@ test('financial advisor searches reject unrelated healthcare, mortgage and accou
  assert.equal(matchesIndexedNiche(labeled({name:'Crosscountry Mortgage',office:'financial'}),'Financial advisors'),false);
  assert.equal(matchesIndexedNiche(labeled({name:'Barwick CPA',office:'financial'}),'Financial advisors'),false);
  assert.equal(matchesIndexedNiche(labeled({name:'Independent CFP',description:'Certified financial planner for families'}),'Financial advisors'),true);
- assert.equal(matchesIndexedNiche(labeled({name:'Janney',office:'financial'}),'Financial advisors'),true);
+ assert.equal(matchesIndexedNiche(labeled({name:'Janney',office:'financial'}),'Financial advisors'),false);
+ assert.equal(matchesIndexedNiche(labeled({name:'Janney',office:'financial',services:'Investment advisory and financial planning'}),'Financial advisors'),true);
  assert.equal(matchesIndexedNiche(labeled({name:'RBC Wealth Management',office:'insurance'}),'Financial advisors'),true);
 });
 
