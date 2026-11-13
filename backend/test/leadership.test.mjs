@@ -6,7 +6,7 @@ const code=readFileSync(new URL('../server.js',import.meta.url),'utf8');
 const begin=code.indexOf('function peopleFromStructuredData(');
 const end=code.indexOf('async function research(website)',begin);
 assert.ok(begin>=0&&end>begin,'Leadership parsers must exist');
-const context=vm.createContext({});
+const context=vm.createContext({URL});
 vm.runInContext(code.slice(begin,end),context);
 const source='https://example.org/about';
 test('extracts founder and CEO from organization JSON-LD with source',()=>{
@@ -43,4 +43,14 @@ test('supports several executives while retaining the original source URL',()=>{
  const people=context.peopleFromStructuredData(html,source);
  assert.equal(people.filter(x=>x.role==='CEO').length,2);
  assert.ok(people.every(x=>x.source===source));
+});
+
+test('company leadership extraction rejects an unrelated organization embedded in the website',()=>{
+ const untrusted={'@type':'Organization',url:'https://different-firm.org/',founder:{'@type':'Person',name:'Jane Smith'}};
+ const html='<script type="application/ld+json">'+JSON.stringify(untrusted)+'</script>';
+ assert.equal(context.peopleFromStructuredData(html,'https://ridgeworks.com/about').length,0);
+ const own={...untrusted,url:'https://ridgeworks.com/',founder:{'@type':'Person',name:'Robin Sanchez'}};
+ const verified=context.peopleFromStructuredData('<script type="application/ld+json">'+JSON.stringify(own)+'</script>','https://ridgeworks.com/about');
+ assert.equal(verified.length,1);
+ assert.equal(verified[0].name,'Robin Sanchez');
 });
