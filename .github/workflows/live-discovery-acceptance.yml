@@ -4,11 +4,19 @@ on:
     paths:
       - 'scripts/live-discovery-acceptance.mjs'
       - '.github/workflows/live-discovery-acceptance.yml'
+      - 'backend/server.js'
+      - 'backend/regional-index.js'
+      - 'backend/product-evidence.js'
+      - 'index.html'
   push:
     branches: [main]
     paths:
       - 'scripts/live-discovery-acceptance.mjs'
       - '.github/workflows/live-discovery-acceptance.yml'
+      - 'backend/server.js'
+      - 'backend/regional-index.js'
+      - 'backend/product-evidence.js'
+      - 'index.html'
   workflow_dispatch:
 permissions:
   contents: read
