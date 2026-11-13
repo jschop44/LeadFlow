@@ -1,5 +1,6 @@
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
+import {financialAdvisorEvidence,pizzaRestaurantEvidence} from './business-niche-evidence.js';
 const regions=JSON.parse(readFileSync(new URL('./data/us-regions.json',import.meta.url),'utf8')).regions;
 const ROOT='https://raw.githubusercontent.com/jschop44/LeadFlow/main/backend/data/us-regional/';
 function insideRing(lon,lat,ring){
@@ -11,11 +12,9 @@ function insideRing(lon,lat,ring){
  return inside;
 }
 export function matchesIndexedNiche(row,niche,declared=row?.niches){
+ if(niche==='Pizza restaurants')return pizzaRestaurantEvidence(row?.tags);
  if(!Array.isArray(declared)||!declared.includes(niche))return false;
- if(niche==='Financial advisors'&&/insurance/i.test(row?.tags?.office||'')){
-  const facts=['name','description','service','services'].map(key=>String(row?.tags?.[key]||'')).join(' ');
-  return /financial advis(?:or|er)|financial plann|wealth manag|investment advis(?:or|er)/i.test(facts);
- }
+ if(niche==='Financial advisors')return financialAdvisorEvidence(row?.tags);
  return true;
 }
 export function containsPoint(geometry,lon,lat){
