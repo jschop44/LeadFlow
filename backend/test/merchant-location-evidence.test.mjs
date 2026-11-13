@@ -5,7 +5,7 @@ import {supportedUSCatalogRecord,productTextMatches} from '../product-evidence.j
 
 const hooga={name:'Hooga',website:'https://hoogahealth.com/',
  officePage:'https://hoogahealth.com/pages/about',officePhrase:'New Berlin WI USA',
- officeLocation:'New Berlin, WI, USA',productPage:'https://hoogahealth.com/collections/red-light-therapy-devices'};
+ officeLocation:'New Berlin, WI, USA',productPage:'https://hoogahealth.com/products/hooga-300w-red-and-near-infrared-light-therapy-panel'};
 test('first-party published US office must be visible and same-domain, not just US shipping',()=>{
  const html='<html><head><script>New Berlin WI USA</script></head><body><p>Free US shipping</p></body></html>';
  assert.equal(firstPartyMerchantLocation(hooga,html),null);
@@ -37,6 +37,23 @@ test('product evidence can use collection pages only on the same HTTPS official 
  assert.equal(sameMerchantHost(hooga.website,'https://www.hoogahealth.com/collections/red-light-therapy-devices'),true);
  assert.equal(sameMerchantHost('https://hoogahealth.com/','https://hoogahealth.com.evil.example/items'),false);
 });
+test('category-specific product evidence stays first party even when same merchant sells different goods',()=>{
+ const website='https://hoogahealth.com/';
+ const red='https://hoogahealth.com/products/hooga-300w-red-and-near-infrared-light-therapy-panel';
+ const sauna='https://hoogahealth.com/products/infrared-sauna-blanket';
+ const row={element:{tags:{website}},productEvidencePage:red,productEvidencePages:{
+  'Red light therapy devices':red,'Sauna blankets':sauna
+ }};
+ assert.equal(merchantProductPage(row,'Red light therapy devices'),red);
+ assert.equal(merchantProductPage(row,'Sauna blankets'),sauna);
+ assert.equal(merchantProductPage(row,'Skin-care devices'),website,'missing category must not inherit another category proof');
+ assert.equal(merchantProductPage(row),red,'old single-niche records remain readable');
+ assert.equal(merchantProductPage({...row,productEvidencePages:{'Sauna blankets':'https://evil.example/shop'}},'Sauna blankets'),website);
+ assert.equal(merchantProductPage({...row,productEvidencePages:{'Sauna blankets':'http://hoogahealth.com/shop'}},'Sauna blankets'),website);
+ assert.equal(merchantSourceMaxBytes([{...hooga,productPage:sauna}],sauna),2_000_000);
+ assert.equal(merchantSourceMaxBytes([hooga],sauna),350_000);
+});
+
 test('do not turn unsupported US shipping or labels into business-location verification',()=>{
  assert.equal(supportedUSCatalogRecord({usEvidence:'U.S. shipping offered on public storefront; headquarters not independently verified',
   element:{tags:{website:hooga.website}}}),false);
