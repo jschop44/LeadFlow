@@ -1,8 +1,11 @@
 /** Match visible published product wording, never a stored discovery label. */
+function normalizeProductWords(value){
+ return String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).map(word=>word==='blankets'?'blanket':word).join(' ');
+}
 export function productTextMatches(html,query){
- const text=String(html||'').replace(/<!--[\s\S]*?-->/g,' ').replace(/<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/gi,' ').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
- const phrase=String(query||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
- return phrase.length>=3&&(' '+text+' ').includes(' '+phrase.replace(/blankets$/,'blanket')+' ' )||phrase.endsWith('blanket')&&(' '+text+' ').includes(' '+phrase+'s ');
+ const visible=String(html||'').replace(/<!--[\s\S]*?-->/g,' ').replace(/<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/gi,' ');
+ const phrase=normalizeProductWords(query);
+ return phrase.length>=3&&(' '+normalizeProductWords(visible)+' ').includes(' '+phrase+' ');
 }
 export function supportedUSCatalogRecord(record){
  const evidence=String(record?.usEvidence||'');
