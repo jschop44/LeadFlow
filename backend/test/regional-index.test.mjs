@@ -54,7 +54,7 @@ test('insurance listings require explicit advisory evidence before becoming fina
  assert.equal(matchesIndexedNiche(agency,'Financial advisors'),false);
  assert.equal(matchesIndexedNiche(agency,'Insurance agencies'),true);
  assert.equal(matchesIndexedNiche({...agency,tags:{...agency.tags,services:'Financial planning and retirement advisory'}},'Financial advisors'),true);
- assert.equal(matchesIndexedNiche({...agency,tags:{name:'Synthetic advisory firm',office:'financial'}},'Financial advisors'),true);
+ assert.equal(matchesIndexedNiche({...agency,tags:{name:'Synthetic advisory firm',office:'financial'}},'Financial advisors'),false);
 });
 
 
@@ -65,7 +65,7 @@ test('financial advisor searches reject unrelated healthcare, mortgage and accou
  assert.equal(matchesIndexedNiche(labeled({name:'Crosscountry Mortgage',office:'financial'}),'Financial advisors'),false);
  assert.equal(matchesIndexedNiche(labeled({name:'Barwick CPA',office:'financial'}),'Financial advisors'),false);
  assert.equal(matchesIndexedNiche(labeled({name:'Independent CFP',description:'Certified financial planner for families'}),'Financial advisors'),true);
- assert.equal(matchesIndexedNiche(labeled({name:'Janney',office:'financial'}),'Financial advisors'),true);
+ assert.equal(matchesIndexedNiche(labeled({name:'Janney',office:'financial'}),'Financial advisors'),false);
  assert.equal(matchesIndexedNiche(labeled({name:'RBC Wealth Management',office:'insurance'}),'Financial advisors'),true);
 });
 
@@ -74,4 +74,23 @@ test('pizza restaurant identification requires restaurant and pizza evidence, no
  assert.equal(matchesIndexedNiche({tags:{name:'Mario Pizza',amenity:'fast_food'},niches:[]},'Pizza restaurants'),true);
  assert.equal(matchesIndexedNiche({tags:{name:'Pizza supply warehouse',shop:'supermarket'},niches:['Pizza restaurants']},'Pizza restaurants'),false);
  assert.equal(matchesIndexedNiche({tags:{name:'Fruit bowl café',amenity:'restaurant',cuisine:'vegetarian'},niches:['Pizza restaurants']},'Pizza restaurants'),false);
+});
+
+
+
+test('real published Maryland advisor snapshot excludes false positives but keeps evidenced firms',async()=>{
+ const {readFileSync}=await import('node:fs');
+ const snapshot=JSON.parse(readFileSync(new URL('../data/maryland-businesses.json',import.meta.url),'utf8'));
+ const rows=snapshot.records.filter(row=>row.tags?.['addr:city']==='Bel Air'&&row.niches?.includes('Financial advisors'));
+ const selected=rows.filter(row=>matchesIndexedNiche(row,'Financial advisors'));
+ const names=selected.map(row=>row.tags.name);
+ assert.ok(rows.length>=40);
+ assert.ok(selected.length>=10,'Explicit evidence should retain source-documented advisors');
+ for(const unrelated of ["Children's Heart Institute",'IQL Behavioral Health Services','Barwick CPA','Crosscountry Mortgage','Lendmark Financial Services']){
+  assert.ok(!names.includes(unrelated),'Non-advisory company falsely included: '+unrelated);
+ }
+ for(const supported of ['RBC Wealth Management','Harford Retirement Planners','Allworth Financial','Edward Jones']){
+  assert.ok(names.includes(supported),'Evidenced advisor missing: '+supported);
+ }
+ assert.ok(selected.length<rows.length,'Financial evidence gate did not filter broad office tags');
 });
