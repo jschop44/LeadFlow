@@ -13,6 +13,7 @@ import http from 'node:http';
 import {createCatalogStore} from './catalog-store.js';
 import {createSearchHistory} from './search-history.js';
 import {wikidataLeadership} from './wikidata-leadership.js';
+import {reconcilePublicLeadership} from './leadership-reconciliation.js';
 import {extractPublicContacts,mergePublicContactEvidence,discoverContactPages} from './contact-evidence.js';
 import {growthLensAudit,auditOpportunity,personalizedDraft,createAuditCache} from './growthlens-outreach.js';
 import {createPageSpeedAuditor} from './integrations/pagespeed.js';
@@ -111,8 +112,7 @@ async function research(website){
   people:[...peopleFromStructuredData(home,root+'/'),...peopleFromVisibleText(home,root+'/')]}]:[]),...pages.filter(Boolean)];
  const combined=mergePublicContactEvidence(sources,root);
  const externalPeople=await independentLookup;
- const people=[...combined.namedContacts,...sources.flatMap(x=>x.people||[]),...externalPeople]
-  .filter((person,i,all)=>person?.name&&person?.role&&all.findIndex(v=>v.name===person.name&&v.role===person.role)===i).slice(0,30);
+ const people=reconcilePublicLeadership([...combined.namedContacts,...sources.flatMap(x=>x.people||[]),...externalPeople],root);
  return {website:root,emails:combined.emails,phones:combined.phones,socials:combined.socials,people,
   emailEvidence:combined.emailEvidence,namedContacts:combined.namedContacts,
   sources,sourceSummary:{publicPagesReviewed:sources.length,discoveredPageLinks:discovered.length,

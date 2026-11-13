@@ -11,7 +11,9 @@ export function verifiedWikidataPeople(rows,website){
   const entity=row.item?.value||'';
   if(!/^https?:\/\/www\.wikidata\.org\/entity\/Q\d+$/.test(entity))continue;
   const name=row.personLabel?.value,role=row.role?.value;
-  if(typeof name!=='string'||!/^[\p{L}][\p{L} .,'-]{3,89}$/u.test(name)||!['Founder','CEO'].includes(role))continue;
+  if(typeof name!=='string'||!/^[\p{L}][\p{L} .,'-]{3,89}$/u.test(name)||!['Founder','CEO','Owner'].includes(role))continue;
+  // Ownership claims are only accepted when the claimed owner is typed as a human.
+  if(role==='Owner'&&row.personType?.value!=='Human')continue;
   const person=row.person?.value||'';
   if(!/^https?:\/\/www\.wikidata\.org\/entity\/Q\d+$/.test(person))continue;
   if(!found.some(x=>x.name===name&&x.role===role))found.push({name,role,source:entity,independentSource:'Wikidata',matchedWebsite:official});
@@ -25,7 +27,7 @@ async function queryLeadership(website,request){
  if(!u.hostname.startsWith('www.'))candidates.push(u.protocol+'//www.'+u.host,u.protocol+'//www.'+u.host+'/');
  const urls=[...new Set(candidates)].filter(x=>normalizedWebsite(x)===normalizedWebsite(website));
  const values=urls.map(x=>'<'+x+'>').join(' ');
- const query='SELECT ?item ?officialWebsite ?person ?personLabel ?role WHERE { VALUES ?officialWebsite { '+values+' } ?item wdt:P856 ?officialWebsite . { ?item wdt:P112 ?person . BIND("Founder" AS ?role) } UNION { ?item p:P169 ?statement . ?statement ps:P169 ?person . FILTER NOT EXISTS { ?statement pq:P582 ?ended } FILTER NOT EXISTS { ?statement wikibase:rank wikibase:DeprecatedRank } BIND("CEO" AS ?role) } SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } LIMIT 30';
+ const query='SELECT ?item ?officialWebsite ?person ?personLabel ?role ?personType WHERE { VALUES ?officialWebsite { '+values+' } ?item wdt:P856 ?officialWebsite . { ?item wdt:P112 ?person . BIND("Founder" AS ?role) } UNION { ?item p:P169 ?statement . ?statement ps:P169 ?person . FILTER NOT EXISTS { ?statement pq:P582 ?ended } FILTER NOT EXISTS { ?statement wikibase:rank wikibase:DeprecatedRank } BIND("CEO" AS ?role) } UNION { ?item p:P127 ?ownershipStatement . ?ownershipStatement ps:P127 ?person . FILTER NOT EXISTS { ?ownershipStatement pq:P582 ?ownerEnded } FILTER NOT EXISTS { ?ownershipStatement wikibase:rank wikibase:DeprecatedRank } ?person wdt:P31 wd:Q5 . BIND("Owner" AS ?role) BIND("Human" AS ?personType) } SERVICE wikibase:label { bd:serviceParam wikibase:language "en". } } LIMIT 30';
  const body=await request(endpoint+'?format=json&query='+encodeURIComponent(query),3500);
  return verifiedWikidataPeople(body.results?.bindings||[],website)
 }
@@ -42,7 +44,7 @@ async function actionLeadership(website,request){
   const sites=(entity.claims?.P856||[]).filter(c=>c.rank!=='deprecated').map(c=>c.mainsnak?.datavalue?.value);
   const official=sites.find(site=>typeof site==='string'&&normalizedWebsite(site)===normalizedWebsite(website));
   if(!official)continue;
-  for(const [property,role] of [['P112','Founder'],['P169','CEO']]){
+  for(const [property,role] of [['P112','Founder'],['P169','CEO'],['P127','Owner']]){
    for(const claim of entity.claims?.[property]||[]){
     const person=claim.mainsnak?.datavalue?.value?.id;
     if(claim.rank==='deprecated'||claim.qualifiers?.P582?.length||!/^Q\d+$/.test(person||''))continue;
@@ -52,8 +54,12 @@ async function actionLeadership(website,request){
  }
  const people=[...new Set(rows.map(r=>r.person.value.split('/').at(-1)))].slice(0,15);
  if(!people.length)return [];
- const labels=await request(api({action:'wbgetentities',ids:people.join('|'),props:'labels',languages:'en'}),3500);
- return verifiedWikidataPeople(rows.map(row=>({...row,personLabel:{value:labels.entities?.[row.person.value.split('/').at(-1)]?.labels?.en?.value}})),website);
+ const labels=await request(api({action:'wbgetentities',ids:people.join('|'),props:'labels|claims',languages:'en'}),3500);
+ return verifiedWikidataPeople(rows.map(row=>{
+  const id=row.person.value.split('/').at(-1),entity=labels.entities?.[id];
+  const isHuman=(entity?.claims?.P31||[]).some(claim=>claim.mainsnak?.datavalue?.value?.id==='Q5'&&claim.rank!=='deprecated');
+  return {...row,personLabel:{value:entity?.labels?.en?.value},...(row.role.value==='Owner'&&isHuman?{personType:{value:'Human'}}:{})};
+ }),website);
 }
 
 export function createLeadershipLookup({fetcher=globalThis.fetch,now=Date.now,maxConcurrent=4,maxEntries=200}={}){
