@@ -2,14 +2,14 @@
 
 LeadFlow has always cross-referenced Wikidata founders (P112) and CEOs (P169) after matching the company's official website (P856). This upgrade also checks publicly recorded **owned by (P127)** statements.
 
-Owner claims are accepted only when:
+Wikidata ownership *statements* are displayed only when:
 
 - The company entry explicitly lists the same official domain as the business being researched, not a similar-looking domain.
 - The proposed owner is a Wikidata human entity (instance of human, P31 = Q5).
 - The Wikidata ownership statement is not deprecated and does not have a recorded end-time qualifier.
-- A recognizable person name and a Wikidata entity reference exist. A CEO, founder, shareholder or registered agent is never automatically treated as the beneficial owner.
+- A recognizable person name and a Wikidata entity reference exist. A CEO, founder, shareholder or registered agent is never automatically treated as the beneficial owner. A P127 holder likewise remains an unverified ownership claim, not an owner identity assertion.
 
-The public Wikidata data might be outdated or incomplete, so the UI calls these **reported owners** and links back to the Wikidata entity. No personal residence, date of birth, or unrelated personal data is collected, and LeadFlow does not invent an email from a leader's name.
+**Important live-data correction:** Wikidata P127 can include historic, small or non-controlling interests. An absent end qualifier does not prove someone currently owns or controls the company. The UI therefore labels these records **Wikidata ownership claim (current control unknown)** rather than treating the person as a verified current owner, and links back to the source entity. No personal residence, date of birth, or unrelated personal data is collected, and LeadFlow does not invent an email from a leader's name.
 
 The leadership reconciliation engine retains up to three source links for a name/role match, distinguishing public claims from the company's own site versus Wikidata. When both sources agree on name and role, it reports *cross-source agreement*, not a verified identity, current position or ownership percentage. This improves ranking and research transparency without adding new API keys.
 
