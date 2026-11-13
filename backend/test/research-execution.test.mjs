@@ -33,7 +33,8 @@ test('actual enrichment runs allowed pages concurrently and retains partial evid
   validate:async website=>new URL(website),fetch:async()=>({status:200,ok:true,text:async()=>''}),
   robotsOK:(_,path)=>path!=='/team',wikidataLeadership:async()=>[],
   get:async url=>{visited.push(url);peak=Math.max(peak,++active);await new Promise(setImmediate);active--;if(url.endsWith('/about'))throw Error('Unavailable');return 'content'},
-  extract:(_,source)=>({emails:[source+'/mail'],phones:[],socials:[]}),peopleFromStructuredData:()=>[],peopleFromVisibleText:()=>[]});
+  extract:(_,source)=>({emails:[source+'/mail'],phones:[],socials:[]}),peopleFromStructuredData:()=>[],peopleFromVisibleText:()=>[],
+  discoverContactPages:()=>[],mergePublicContactEvidence:sources=>({emails:sources.flatMap(x=>x.emails||[]),phones:[],socials:[],emailEvidence:[],namedContacts:[]})});
  vm.runInContext(code.slice(start,end),context);
  const result=await context.research('https://example.org/path');
  assert.equal(peak,3);assert.equal(visited.length,8);assert.equal(result.sources.length,7);
