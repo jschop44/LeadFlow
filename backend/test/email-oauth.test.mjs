@@ -18,6 +18,13 @@ test('Gmail expiry is measured at token issuance, refresh is coalesced, and send
  };
  try{
   assert.throws(()=>oauthStart('google','https://untrusted.example'),/destination/);
+  assert.throws(()=>oauthStart('google','https://jschop44.github.io/OtherApp/'),/destination/);
+  const pagesStart=new URL(oauthStart('google','https://jschop44.github.io/LeadFlow/'));
+  const pagesRedirect=new URL(await oauthCallback(new URLSearchParams({state:pagesStart.searchParams.get('state'),code:'pages-code'})));
+  assert.equal(pagesRedirect.origin,'https://jschop44.github.io');
+  assert.equal(pagesRedirect.pathname,'/LeadFlow/');
+  const pagesTicket=new URLSearchParams(pagesRedirect.hash.slice(1)).get('oauth-ticket');
+  oauthDisconnect(oauthExchange(pagesTicket).session);
   const start=new URL(oauthStart('google','https://leadflow-research-api.onrender.com/app'));assert.equal(start.searchParams.get('code_challenge_method'),'S256');
   const callback=new URL(await oauthCallback(new URLSearchParams({state:start.searchParams.get('state'),code:'test-code'})));
   assert.equal(callback.pathname,'/app');
