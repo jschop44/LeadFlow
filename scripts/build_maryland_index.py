@@ -66,7 +66,7 @@ class Collect(osmium.SimpleHandler):
   # Pizza must be an actual restaurant/fast-food cuisine, not a pizza-themed
   # supplier or a vaguely food-related business. Keep the source cuisine tag
   # so the runtime can independently enforce the same evidence rule.
-  if tags.get("amenity") in ("restaurant","fast_food") and re.search(r"(?:^|[;,\\s])pizza(?:$|[;,\\s])",tags.get("cuisine",""),re.I):
+  if tags.get("amenity") in ("restaurant","fast_food") and re.search(r"(?:^|[;,\s])pizza(?:$|[;,\s])",tags.get("cuisine",""),re.I):
    niches.append("Pizza restaurants")
   if not niches:return
   try:
