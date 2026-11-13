@@ -9,3 +9,11 @@ test('catalog labels and search terms alone cannot qualify an advisor',()=>{
  assert.equal(supportsCatalogNiche(record('Independent Financial Advisors'),'Financial advisors'),true);
  assert.equal(supportsCatalogNiche({niches:['Insurance agencies'],element:{tags:{name:'Independent Financial Advisors'}}},'Financial advisors'),false);
 });
+
+
+test('generic financial-office classification is insufficient for a verified advisor niche',()=>{
+ assert.equal(supportsCatalogNiche({niches:['Financial advisors'],element:{tags:{name:'Children\'s Heart Institute',office:'financial'}}},'Financial advisors'),false);
+ assert.equal(supportsCatalogNiche({niches:['Financial advisors'],element:{tags:{name:'Janney',office:'financial'}}},'Financial advisors'),false);
+ assert.equal(supportsCatalogNiche({niches:['Financial advisors'],element:{tags:{name:'Edward Jones',office:'financial_advisor'}}},'Financial advisors'),true);
+ assert.equal(supportsCatalogNiche({niches:['Financial advisors'],element:{tags:{name:'RBC Wealth Management',office:'financial'}}},'Financial advisors'),true);
+});
