@@ -62,7 +62,13 @@ function extract(html,source){return extractPublicContacts(html,source)}
 function peopleFromStructuredData(html,source){
  const found=[];const add=(person,role)=>{if(!person)return;const name=typeof person==='string'?person:person.name;if(typeof name!=='string'||name.length<4||name.length>90)return;const clean=name.replace(/\s+/g,' ').trim();if(!/^[\p{L}][\p{L} .,'-]+$/u.test(clean))return;if(!found.some(x=>x.name.toLowerCase()===clean.toLowerCase()&&x.role===role))found.push({name:clean,role,source})};
  const walk=(value,depth=0)=>{if(!value||depth>6)return;if(Array.isArray(value)){value.forEach(x=>walk(x,depth+1));return}if(typeof value!=='object')return;
- const type=String(value['@type']||'').toLowerCase();if(type.includes('organization')||type.includes('localbusiness')||type.includes('corporation')){for(const role of ['founder','employee','member']){const v=value[role];if(v)(Array.isArray(v)?v:[v]).forEach(p=>add(p,role==='founder'?'Founder':'Team member'))}if(value.ceo)(Array.isArray(value.ceo)?value.ceo:[value.ceo]).forEach(p=>add(p,'CEO'));if(value.founder)(Array.isArray(value.founder)?value.founder:[value.founder]).forEach(p=>add(p,'Founder'));if(value.founders)(Array.isArray(value.founders)?value.founders:[value.founders]).forEach(p=>add(p,'Founder'))}
+ const type=String(value['@type']||'').toLowerCase();if(type.includes('organization')||type.includes('localbusiness')||type.includes('corporation')){
+ const claimed=String(value.url||value['@id']||'');
+ if(/^https?:\/\//i.test(claimed)){
+  try{const actual=new URL(claimed).hostname.toLowerCase().replace(/^www\./,''),expected=new URL(source).hostname.toLowerCase().replace(/^www\./,'');if(actual!==expected)return}
+  catch{return}
+ }
+ for(const role of ['founder','employee','member']){const v=value[role];if(v)(Array.isArray(v)?v:[v]).forEach(p=>add(p,role==='founder'?'Founder':'Team member'))}if(value.ceo)(Array.isArray(value.ceo)?value.ceo:[value.ceo]).forEach(p=>add(p,'CEO'));if(value.founder)(Array.isArray(value.founder)?value.founder:[value.founder]).forEach(p=>add(p,'Founder'));if(value.founders)(Array.isArray(value.founders)?value.founders:[value.founders]).forEach(p=>add(p,'Founder'))}
  if(value['@graph'])walk(value['@graph'],depth+1);if(value.mainEntity)walk(value.mainEntity,depth+1);
  };
  for(const m of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){try{walk(JSON.parse(m[1]))}catch{}}
