@@ -24,9 +24,12 @@ export function firstPartyMerchantLocation(merchant,html){
  };
 }
 /** Product evidence must always be fetched from the merchant's own HTTPS host. */
-export function merchantProductPage(record){
+export function merchantProductPage(record,niche){
  const website=record?.element?.tags?.website;
- const source=record?.productEvidencePage;
+ // Distinct verified product categories at the same merchant need distinct
+ // pages. Never let a sauna lookup overwrite red-light product evidence.
+ const candidate=typeof niche==='string'&&record?.productEvidencePages?.[niche];
+ const source=candidate||record?.productEvidencePage;
  return sameOfficialHost(website,source)?source:website;
 }
 export function sameMerchantHost(website,source){return sameOfficialHost(website,source)}
