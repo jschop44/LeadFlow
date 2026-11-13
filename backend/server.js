@@ -56,7 +56,7 @@ async function get(url,maxBytes=350000){
   if(r.status>=300&&r.status<400)throw Error('Redirect disallowed');
   if(!r.ok)throw Error('HTTP '+r.status);
   const type=r.headers.get('content-type')||'';
-  if(!/text\\/html|text\\/plain/i.test(type))throw Error('Not HTML');
+  if(!type.toLowerCase().includes('text/html')&&!type.toLowerCase().includes('text/plain'))throw Error('Not HTML');
   if(Number(r.headers.get('content-length')||0)>maxBytes)throw Error('Page too large');
   const decoder=new TextDecoder();let body='',bytes=0;
   for await(const chunk of r.body){
