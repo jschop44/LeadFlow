@@ -77,12 +77,29 @@ async function browserCheck(){
  finally{await browser.close()}
  return result;
 }
+async function waitForDeployedRevision(expected){
+ if(!/^[a-f0-9]{40}$/.test(expected||''))throw Error('Missing full expected source commit SHA');
+ for(let attempt=0;attempt<50;attempt++){
+  try{
+   const response=await fetch(API+'/health',{cache:'no-store',headers:{'cache-control':'no-cache'},signal:AbortSignal.timeout(8000)});
+   const health=await response.json();
+   if(response.ok&&health.status==='ok'&&health.release===expected)return;
+  }catch{}
+  await new Promise(resolve=>setTimeout(resolve,7000));
+ }
+ throw Error('Live LeadFlow revision was not verified within bounded wait; source tests were not run against an older deployment');
+}
 await mkdir(OUT,{recursive:true});
-const report={checkedAt:new Date().toISOString(),api:API,
-  notes:['Discovery uses real public API responses; browser pagination uses 43 explicitly synthetic businesses, not real leads.','No messages or outreach sent; no library records changed.','Source availability and business contact verification are not inferred from API health.'],
+const expectedRevision=process.env.LEADFLOW_EXPECTED_REVISION;
+const report={checkedAt:new Date().toISOString(),api:API,expectedRevision,
+  notes:['Discovery uses real public API responses only after matching the exact deployed revision; browser pagination uses 43 explicitly synthetic businesses, not real leads.','No messages or outreach sent; no library records changed.','Source availability and business contact verification are not inferred from API health.'],
   cases:[],browser:null};
-for(const item of searches){const result=await probe(item);report.cases.push(result);console.log(JSON.stringify({case:result.case,status:result.status,count:result.count,limitations:result.limitations}))}
-report.browser=await browserCheck();
+try{
+ await waitForDeployedRevision(expectedRevision);
+ report.deployedRevision=expectedRevision;
+ for(const item of searches){const result=await probe(item);report.cases.push(result);console.log(JSON.stringify({case:result.case,status:result.status,count:result.count,limitations:result.limitations}))}
+ report.browser=await browserCheck();
+ if(report.browser.status!=='fixture-browser-passed')process.exitCode=1;
+}catch(e){report.blocker=String(e instanceof Error?e.message:e).slice(0,500);process.exitCode=1;}
 await writeFile(join(OUT,'leadflow-acceptance.json'),JSON.stringify(report,null,2));
-console.log(JSON.stringify({browserStatus:report.browser.status,firstFailure:report.browser.firstFailure}));
-if(report.browser.status!=='fixture-browser-passed')process.exitCode=1;
+console.log(JSON.stringify({deployedRevision:report.deployedRevision||null,blocker:report.blocker||null,browserStatus:report.browser?.status||'not_run',firstFailure:report.browser?.firstFailure||null}));
