@@ -1,0 +1,22 @@
+name: Verify Geofabrik importer
+on:
+  pull_request:
+    paths:
+      - scripts/build_maryland_index.py
+      - scripts/test_regional_import.py
+      - .github/workflows/refresh-business-index.yml
+      - .github/workflows/verify-geofabrik-importer.yml
+permissions:
+  contents: read
+jobs:
+  importer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install --disable-pip-version-check osmium==4.3.2
+      - name: Verify named pizza leads, false positives and Maryland index parity
+        run: python scripts/test_regional_import.py
