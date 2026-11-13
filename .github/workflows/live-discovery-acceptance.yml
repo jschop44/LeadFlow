@@ -1,0 +1,50 @@
+name: LeadFlow read-only discovery and mobile acceptance
+on:
+  pull_request:
+    paths:
+      - 'scripts/live-discovery-acceptance.mjs'
+      - '.github/workflows/live-discovery-acceptance.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/live-discovery-acceptance.mjs'
+      - '.github/workflows/live-discovery-acceptance.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: leadflow-live-acceptance-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  syntax:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check scripts/live-discovery-acceptance.mjs
+  live:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.56.1
+      - run: npx playwright install --with-deps chromium
+      - name: Collect real public discovery and synthetic browser pagination evidence
+        run: node scripts/live-discovery-acceptance.mjs
+      - name: Preserve desktop, phone and source availability evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: leadflow-live-acceptance
+          path: acceptance-evidence/
+          if-no-files-found: warn
+          retention-days: 7
