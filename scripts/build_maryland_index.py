@@ -66,7 +66,7 @@ class Collect(osmium.SimpleHandler):
   # Pizza must be an actual restaurant/fast-food cuisine, not a pizza-themed
   # supplier or a vaguely food-related business. Keep the source cuisine tag
   # so the runtime can independently enforce the same evidence rule.
-  if tags.get("amenity") in ("restaurant","fast_food") and re.search(r"(?:^|[;,\s])pizza(?:$|[;,\s])",tags.get("cuisine",""),re.I):
+  if tags.get("amenity") in ("restaurant","fast_food") and (re.search(r"(?:^|[;,\s])pizza(?:$|[;,\s])",tags.get("cuisine",""),re.I) or re.search(r"\bpizza\b",name,re.I)):
    niches.append("Pizza restaurants")
   if not niches:return
   try:
@@ -113,6 +113,14 @@ for record in seed_records:
 payload=json.dumps({"source":"Geofabrik / OpenStreetMap contributors and attributed seed listings","region":REGION["name"] if REGION else "Maryland","region_slug":REGION_SLUG or "maryland","generated_at":datetime.now(timezone.utc).isoformat(),"records":osm_records},separators=(",",":")).encode()
 if REGION and (len(payload)>20000000 or len(osm_records)>50000):raise SystemExit("Regional decoded size exceeds bounded runtime capacity")
 OUT.write_bytes(gzip.compress(payload,mtime=0)) if REGION else OUT.write_bytes(payload)
+# The local city search loads the compressed Maryland regional index, while
+# startup also reads the plain Maryland snapshot. Publish both from the same
+# attributed source extraction so neither path silently misses new niches.
+if not REGION:
+ regional=Path("backend/data/us-regional/maryland.json.gz")
+ regional.parent.mkdir(parents=True,exist_ok=True)
+ regional.write_bytes(gzip.compress(payload,mtime=0))
+ if regional.stat().st_size>5000000:raise SystemExit("Maryland regional index exceeds 5 MB limit")
 print("Indexed",len(rows),"named",REGION["name"] if REGION else "Maryland","businesses")
 if OUT.stat().st_size>5000000:raise SystemExit("Regional index exceeds 5 MB limit")
 if not rows:raise SystemExit("No real businesses extracted; refusing empty snapshot")
