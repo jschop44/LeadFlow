@@ -445,13 +445,16 @@ const productMerchantSources={
   // Each US address is checked against current first-party public evidence.
   {name:'Hooga',website:'https://hoogahealth.com/',officePage:'https://hoogahealth.com/pages/about',
    officePhrase:'New Berlin WI USA',officeLocation:'New Berlin, WI, USA',
-   productPage:'https://hoogahealth.com/collections/red-light-therapy-devices'},
+   productPage:'https://hoogahealth.com/products/hooga-300w-red-and-near-infrared-light-therapy-panel'},
   {name:'Mito Red Light',website:'https://mitoredlight.com/',officePage:'https://mitoredlight.com/pages/contact-us',
    officePhrase:'Scottsdale AZ 85258',officeLocation:'Scottsdale, AZ, USA',
-   productPage:'https://mitoredlight.com/collections/red-light-therapy'},
+   productPage:'https://mitoredlight.com/products/mitopro-x-series'},
   {name:'iRESTORE',website:'https://www.irestorelaser.com/'}
  ],
  'Sauna blankets':[
+  {name:'Hooga',website:'https://hoogahealth.com/',officePage:'https://hoogahealth.com/pages/about',
+   officePhrase:'New Berlin WI USA',officeLocation:'New Berlin, WI, USA',
+   productPage:'https://hoogahealth.com/products/infrared-sauna-blanket'},
   {name:'HigherDOSE',website:'https://higherdose.com/',officePage:'https://higherdose.com/pages/terms-conditions',
    officePhrase:'operated by HigherDOSE from its offices in New York',officeLocation:'New York, NY, USA',
    productPage:'https://higherdose.com/collections/infrared-sauna-collection'}
@@ -469,7 +472,7 @@ async function verifyProductMerchants(niche){
   if(!domain)continue;
   const previous=onlineCatalog.get(domain);
   if(previous&&Date.now()-Number(previous.checkedAt||0)<7*86400000&&previous.niches?.includes(niche)&&
-     supportedUSCatalogRecord(previous)&&previous.productEvidencePage)continue;
+     supportedUSCatalogRecord(previous)&&previous.productEvidencePages?.[niche])continue;
   try{
    // Shipping to the US does not establish a US business location.
    if(!merchant.officePage||!sameMerchantHost(merchant.website,merchant.officePage)){
@@ -505,7 +508,7 @@ async function verifyProductMerchants(niche){
     classification:'Online',platform:inspected.platform,classificationEvidence:inspected.classificationEvidence,...location};
    const row={domain,niches:[...new Set([...(previous?.niches||[]),niche])],checkedAt:Date.now(),
     classification:'Online',platform:inspected.platform,evidence:inspected.classificationEvidence,
-    productEvidencePage,...location,element};
+    productEvidencePage,productEvidencePages:{...(previous?.productEvidencePages||{}),...(productEvidencePage?{[niche]:productEvidencePage}:{})},...location,element};
    await catalogStore.save(row);
    onlineCatalog.set(domain,row);
    console.log('Merchant qualification',JSON.stringify({domain,stage:'catalog_evidence_persisted',locationKind:location.usEvidenceKind}));
@@ -565,7 +568,7 @@ async function searchProductKeyword(raw){
  // Old niche assignments are candidate hints, not evidence of a product or US location.
  const candidates=records.filter(supportedUSCatalogRecord).sort((a,b)=>Number(Boolean(group&&b.niches?.includes(group.niche)))-Number(Boolean(group&&a.niches?.includes(group.niche)))).slice(0,24);
  let nextProduct=0;await Promise.all(Array.from({length:6},async()=>{while(nextProduct<candidates.length){const r=candidates[nextProduct++];
-  try{const sourceUrl=merchantProductPage(r),key=r.domain+'|'+query+'|'+sourceUrl;
+  try{const sourceUrl=merchantProductPage(r,group?.niche),key=r.domain+'|'+query+'|'+sourceUrl;
    let evidence=productEvidenceCache.get(key);
    if(!evidence||Date.now()-evidence.retrievedAt>3600000){
     evidence={matches:productTextMatches(await get(sourceUrl,merchantSourceMaxBytes(group&&productMerchantSources[group.niche],sourceUrl)),query),sourceUrl,retrievedAt:Date.now(),method:'public_visible_product_phrase'};
