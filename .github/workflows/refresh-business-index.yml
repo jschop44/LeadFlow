@@ -1,10 +1,7 @@
 name: Refresh Maryland business index
 on:
-  push:
-    paths:
-      - 'scripts/build_maryland_index.py'
-      - 'backend/data/maryland-seed-businesses.json'
-      - '.github/workflows/refresh-business-index.yml'
+  # Source PBF downloads run only on a bounded weekly schedule or an
+  # explicitly authorized manual dispatch, never for every feature branch.
   workflow_dispatch:
   schedule:
     - cron: '15 7 * * 0'
