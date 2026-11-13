@@ -1,12 +1,7 @@
 name: Refresh US regional business index
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/refresh-us-index.yml'
-      - 'scripts/build_maryland_index.py'
-      - 'scripts/test_regional_import.py'
-      - 'backend/data/us-regions.json'
+  # The 51-state public Geofabrik rebuild is a deliberate scheduled/manual
+  # operation, never an automatic side effect of a code or fixture change.
   workflow_dispatch:
   schedule:
     - cron: '25 6 1 * *'
