@@ -489,7 +489,8 @@ async function startEmailConnection(provider){
    }
   }
  }catch(e){$('outreach-note').textContent='Could not check provider readiness; attempting sign-in directly.'}
- window.location.assign(emailApi+'/oauth/start?provider='+provider+(location.origin===emailApi?'&returnTo='+encodeURIComponent(emailApi+'/app'):''));
+ const returnTo=location.origin===emailApi?emailApi+'/app':location.origin==='https://jschop44.github.io'&&/^\/LeadFlow\/(?:index\.html)?$/.test(location.pathname)?'https://jschop44.github.io/LeadFlow/':'';
+ window.location.assign(emailApi+'/oauth/start?provider='+provider+(returnTo?'&returnTo='+encodeURIComponent(returnTo):''));
 }
 $('connect-gmail').onclick=()=>startEmailConnection('google');
 
