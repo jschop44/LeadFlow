@@ -24,6 +24,8 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install osmium
+      - name: Verify real parser with isolated named-pizza and Maryland snapshot fixtures
+        run: python scripts/test_regional_import.py
       - name: Diagnose importer environment
         run: |
           python -c 'import osmium; print("pyosmium import OK")'
