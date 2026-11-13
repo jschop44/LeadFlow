@@ -30,3 +30,13 @@ export function merchantProductPage(record){
  return sameOfficialHost(website,source)?source:website;
 }
 export function sameMerchantHost(website,source){return sameOfficialHost(website,source)}
+
+/** Increase the streaming cap only for explicitly enumerated official proof
+ * and product collection pages. Arbitrary business/user URLs keep 350 kB.
+ * Both limits and DNS/redirect protection remain enforced by the HTTP reader.
+ */
+export function merchantSourceMaxBytes(merchants,url){
+ return Array.isArray(merchants)&&merchants.some(merchant=>
+  sameOfficialHost(merchant?.website,url)&&(merchant?.officePage===url||merchant?.productPage===url))
+  ?2_000_000:350_000;
+}
