@@ -68,3 +68,48 @@ test('cache values cannot be mutated by callers and expire before revalidation',
  assert.equal((await lookup('https://example.com'))[0].name,'Jane Smith');assert.equal(calls,1);
  clock=3600001;await lookup('https://example.com');assert.equal(calls,2);
 });
+
+test('accepts a sourced owner claim only when Wikidata explicitly identifies a human owner',()=>{
+ const person=make('https://example.com','Robin Sanchez','Owner');
+ assert.equal(verifiedWikidataPeople([person],'https://example.com').length,0);
+ person.personType={value:'Human'};
+ const found=verifiedWikidataPeople([person],'https://example.com');
+ assert.equal(found.length,1);
+ assert.equal(found[0].role,'Owner');
+ assert.equal(found[0].source,'https://www.wikidata.org/entity/Q123');
+ const bad=structuredClone(person);bad.officialWebsite.value='https://example.com.attacker.org';
+ assert.equal(verifiedWikidataPeople([bad],'https://example.com').length,0);
+});
+test('SPARQL public ownership lookup excludes ended claims and non-human ownership',async()=>{
+ let captured='';
+ const lookup=createLeadershipLookup({fetcher:async raw=>{
+  const u=new URL(raw);
+  assert.equal(u.hostname,'query.wikidata.org');
+  captured=u.searchParams.get('query');
+  const owner={...make('https://example.com','Robin Sanchez','Owner'),personType:{value:'Human'}};
+  return Response.json({results:{bindings:[owner]}});
+ }});
+ const found=await lookup('https://example.com');
+ assert.equal(found[0].role,'Owner');
+ assert.match(captured,/ps:P127/);
+ assert.match(captured,/pq:P582/);
+ assert.match(captured,/wd:Q5/);
+});
+test('MediaWiki claims fallback accepts only human registered owners',async()=>{
+ const calls=[];
+ const lookup=createLeadershipLookup({fetcher:async raw=>{
+  const u=new URL(raw);calls.push(u);
+  if(u.hostname==='query.wikidata.org')throw Error('SPARQL temporarily unavailable');
+  if(u.searchParams.get('action')==='wbsearchentities')return Response.json({search:[{id:'Q100'}]});
+  if(u.searchParams.get('props')==='claims')return Response.json({entities:{Q100:{claims:{
+   P856:[{mainsnak:{datavalue:{value:'https://example.com/'}}}],
+   P127:[{mainsnak:{datavalue:{value:{id:'Q201'}}}},{mainsnak:{datavalue:{value:{id:'Q202'}}},qualifiers:{P582:[{}]}}],
+  }}}});
+  assert.equal(u.searchParams.get('ids'),'Q201');
+  return Response.json({entities:{Q201:{labels:{en:{value:'Robin Sanchez'}},claims:{P31:[{mainsnak:{datavalue:{value:{id:'Q5'}}}}]}}}});
+ }});
+ const people=await lookup('https://example.com');
+ assert.equal(people.length,1);
+ assert.equal(people[0].role,'Owner');
+ assert.equal(calls.length,4);
+});
