@@ -1,7 +1,7 @@
 import {createRegionalSearch,matchesIndexedNiche,resolveUSState} from './regional-index.js';
 import {supportsCatalogNiche} from './catalog-niche-evidence.js';
 import {productTextMatches,supportedUSCatalogRecord} from './product-evidence.js';
-import {firstPartyMerchantLocation,merchantProductPage,sameMerchantHost} from './merchant-location-evidence.js';
+import {firstPartyMerchantLocation,merchantProductPage,sameMerchantHost,merchantSourceMaxBytes} from './merchant-location-evidence.js';
 import {createSearchRunner} from './search-execution.js';
 import {createHostPacer} from './provider-pacing.js';
 import {serveFrontend} from './frontend.js';
@@ -46,7 +46,27 @@ const LIMIT=12;
 const hits=new Map();
 const blocked=(ip)=>{if(net.isIP(ip)===4){const p=ip.split('.').map(Number);return p[0]===0||p[0]===10||p[0]===127||p[0]>=224||p[0]===169&&p[1]===254||p[0]===172&&p[1]>=16&&p[1]<=31||p[0]===192&&p[1]===168||p[0]===100&&p[1]>=64&&p[1]<=127||p[0]===192&&p[1]===0||p[0]===198&&[18,19].includes(p[1])}return /^(::1|::|f[c-d]|fe80:|::ffff:)/i.test(ip)};
 async function validate(raw){const u=new URL(raw);if(!['http:','https:'].includes(u.protocol)||u.username||u.password||u.port&& !['80','443'].includes(u.port))throw Error('Restricted URL');const h=u.hostname.toLowerCase();if(!h.includes('.')||h.endsWith('.local')||h.endsWith('.internal')||h.endsWith('.onion')||h==='localhost'||net.isIP(h))throw Error('Restricted host');const records=await dns.lookup(h,{all:true});if(!records.length||records.some(r=>blocked(r.address)))throw Error('Restricted network destination');return u}
-async function get(url){await validate(url);const controller=new AbortController();const timer=setTimeout(()=>controller.abort(),7000);try{const r=await fetch(url,{redirect:'manual',signal:controller.signal,headers:{'user-agent':'LeadFlowBusinessResearch/1.0','accept':'text/html,text/plain'}});if(r.status>=300&&r.status<400)throw Error('Redirect disallowed');if(!r.ok)throw Error('HTTP '+r.status);const type=r.headers.get('content-type')||'';if(!/text\/html|text\/plain/i.test(type))throw Error('Not HTML');if(Number(r.headers.get('content-length')||0)>350000)throw Error('Page too large');let body='';for await(const chunk of r.body){body+=new TextDecoder().decode(chunk);if(body.length>350000)throw Error('Page too large')}return body}finally{clearTimeout(timer)}}
+async function get(url,maxBytes=350000){
+ // Caller cannot request arbitrarily sized or credentialed/network-local HTML.
+ maxBytes=maxBytes===2_000_000?2_000_000:350000;
+ await validate(url);
+ const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),7000);
+ try{
+  const r=await fetch(url,{redirect:'manual',signal:controller.signal,headers:{'user-agent':'LeadFlowBusinessResearch/1.0','accept':'text/html,text/plain'}});
+  if(r.status>=300&&r.status<400)throw Error('Redirect disallowed');
+  if(!r.ok)throw Error('HTTP '+r.status);
+  const type=r.headers.get('content-type')||'';
+  if(!/text\\/html|text\\/plain/i.test(type))throw Error('Not HTML');
+  if(Number(r.headers.get('content-length')||0)>maxBytes)throw Error('Page too large');
+  const decoder=new TextDecoder();let body='',bytes=0;
+  for await(const chunk of r.body){
+   bytes+=chunk.byteLength;
+   if(bytes>maxBytes)throw Error('Page too large');
+   body+=decoder.decode(chunk,{stream:true});
+  }
+  return body+decoder.decode();
+ }finally{clearTimeout(timer)}
+}
 configureResearchProvider(async website=>{
  const u=await validate(website);
  if(u.protocol!=='https:')return {status:'unavailable',reason:'HTTPS website required'};
@@ -447,12 +467,12 @@ async function verifyProductMerchants(niche){
   try{
    // Shipping to the US does not establish a US business location.
    if(!merchant.officePage||!sameMerchantHost(merchant.website,merchant.officePage))continue;
-   const location=firstPartyMerchantLocation(merchant,await get(merchant.officePage));
+   const location=firstPartyMerchantLocation(merchant,await get(merchant.officePage,merchantSourceMaxBytes(merchants,merchant.officePage)));
    if(!location)continue;
    let inspected=await inspectBusinessWebsite(merchant.website);
    if(inspected.classification!=='Online'&&merchant.productPage&&sameMerchantHost(merchant.website,merchant.productPage)){
     try{
-     const html=await get(merchant.productPage);
+     const html=await get(merchant.productPage,merchantSourceMaxBytes(merchants,merchant.productPage));
      if(productTextMatches(html,'add to cart'))inspected={classification:'Online',platform:'Not verified',
       classificationEvidence:'Published Add to Cart controls on official product collection'};
     }catch{}
@@ -521,7 +541,7 @@ async function searchProductKeyword(raw){
   try{const sourceUrl=merchantProductPage(r),key=r.domain+'|'+query+'|'+sourceUrl;
    let evidence=productEvidenceCache.get(key);
    if(!evidence||Date.now()-evidence.retrievedAt>3600000){
-    evidence={matches:productTextMatches(await get(sourceUrl),query),sourceUrl,retrievedAt:Date.now(),method:'public_visible_product_phrase'};
+    evidence={matches:productTextMatches(await get(sourceUrl,merchantSourceMaxBytes(group&&productMerchantSources[group.niche],sourceUrl)),query),sourceUrl,retrievedAt:Date.now(),method:'public_visible_product_phrase'};
     productEvidenceCache.set(key,evidence);while(productEvidenceCache.size>200)productEvidenceCache.delete(productEvidenceCache.keys().next().value);
    }
    if(evidence.matches)matches.push({...r,element:{...r.element,productEvidence:evidence}})
