@@ -1,3 +1,4 @@
+import {financialAdvisorEvidence} from './financial-advisor-evidence.js';
 import {readFileSync} from 'node:fs';
 import {gunzipSync} from 'node:zlib';
 const regions=JSON.parse(readFileSync(new URL('./data/us-regions.json',import.meta.url),'utf8')).regions;
@@ -12,22 +13,13 @@ function insideRing(lon,lat,ring){
 }
 export function matchesIndexedNiche(row,niche,declared=row?.niches){
  const tags=row?.tags||{};
- // Pizza classification requires direct OSM restaurant and cuisine/name evidence,
- // not an inferred catalog niche that could be attached to another business.
  if(niche==='Pizza restaurants'){
   const amenity=String(tags.amenity||'');
   return /^(?:restaurant|fast_food)$/i.test(amenity)&&
    (/(?:^|[;, ])pizza(?:$|[;, ])/i.test(String(tags.cuisine||''))||/\bpizza\b/i.test(String(tags.name||'')));
  }
  if(!Array.isArray(declared)||!declared.includes(niche))return false;
- if(niche==='Financial advisors'){
-  const facts=['name','description','service','services'].map(key=>String(tags[key]||'')).join(' ');
-  const advisory=/\b(?:financial advis(?:ors?|ers?)|financial plann(?:ers?|ing)|wealth manag(?:er|ement)|investment advis(?:ors?|ers?)|asset management|retirement advis(?:ory|or|er)|certified financial planner)\b/i.test(facts);
-  const office=String(tags.office||'').toLowerCase();
-  const dedicatedOffice=/^(?:financial|financial_advisor|investment_advisor|wealth_management)$/.test(office);
-  const unrelated=/\b(?:mortgage|lender|loan|loans|health|dental|cpa|accountan\w*|bookkeep\w*)\b/i.test(facts);
-  return advisory||(dedicatedOffice&&!unrelated);
- }
+ if(niche==='Financial advisors')return financialAdvisorEvidence(tags);
  return true;
 }
 export function containsPoint(geometry,lon,lat){
