@@ -30,7 +30,8 @@ import {fileURLToPath} from 'node:url';
 const PORT=Number(process.env.PORT||10000);
 const ORIGIN=process.env.ALLOWED_ORIGIN||'https://leadflow-tp57.onrender.com';
 const API_ORIGIN=new URL(process.env.PUBLIC_API_ORIGIN||'https://leadflow-research-api.onrender.com').origin;
-const allowedOrigin=origin=>origin===ORIGIN||origin===API_ORIGIN;
+const PAGES_ORIGIN='https://jschop44.github.io'; // Exact owner origin; no wildcard cross-origin access.
+const allowedOrigin=origin=>origin===ORIGIN||origin===API_ORIGIN||origin===PAGES_ORIGIN;
 const TOKEN=process.env.API_TOKEN||'';
 const auditWebsiteWithPageSpeed=createPageSpeedAuditor();
 const hubspotCRM=createHubSpotCompanySync();
