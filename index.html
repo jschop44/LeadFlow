@@ -127,7 +127,12 @@ function contactCell(x){
  const label=evidence?(evidence.classification==='named_company_published'?'Named company contact (not independently verified)':evidence.businessDomainMatch?'Published company-domain address':'Published external-domain address'):x.ownerEmail?'Owner email in source listing (unverified)':x.enrichedEmails?.length?'Website email (unverified)':'Company email (listed; unverified)';
  const source=evidence?.source&&url(evidence.source)?' <a target="_blank" rel="noopener noreferrer" href="'+safe(url(evidence.source))+'">evidence ↗</a>':'';
  const pages=evidence?.sourceCount>1?' · '+evidence.sourceCount+' company pages':'';
- const team=x.enrichedPeople?.length?x.enrichedPeople.slice(0,3).map(p=>'<strong>'+safe(p.name)+'</strong> <small>('+safe(p.role)+')</small> '+(url(p.source)?'<a target="_blank" rel="noopener noreferrer" href="'+safe(url(p.source))+'">source ↗</a>':'')).join('<br>')+'<br>':'';
+ const team=x.enrichedPeople?.length?x.enrichedPeople.slice(0,3).map(p=>{
+  const label=p.role==='Owner'&&p.independentSource==='Wikidata'?'Reported owner (Wikidata claim; verify current)':p.role;
+  const corroboration=p.corroboration==='company_website_and_wikidata_agree'?' · company + Wikidata report this role':'';
+  const sourceLinks=(p.sources?.length?p.sources:[p.source]).filter(v=>url(v)).slice(0,3).map(v=>'<a target="_blank" rel="noopener noreferrer" href="'+safe(url(v))+'">source ↗</a>').join(' ');
+  return '<strong>'+safe(p.name)+'</strong> <small>('+safe(label)+safe(corroboration)+')</small> '+sourceLinks;
+ }).join('<br>')+'<br>':'';
  return (x.owner?'<strong>'+safe(x.owner)+'</strong><br>':'')+team+(email?'<a href="mailto:'+safe(email)+'">'+safe(email)+'</a><br><small>'+safe(label)+pages+'</small>'+source:'<small>No published email</small>')+'<br><a target="_blank" rel="noopener noreferrer" href="'+safe(searchLink(x))+'">Research contacts ↗</a>'+(state?'<br><button class="secondary" style="padding:5px 8px;margin-top:6px" data-registry="'+safe(key(x))+'">Check '+safe(state)+' filing</button>':'')+(x.publicRegistry?.matches?.length?'<br><small>Possible registry name match: '+safe(x.publicRegistry.matches[0].legalName)+(x.publicRegistry.matches[0].publicRole?' · '+safe(x.publicRegistry.matches[0].publicRole.role)+': '+safe(x.publicRegistry.matches[0].publicRole.name):'')+' (not ownership proof) <a target="_blank" rel="noopener noreferrer" href="'+safe(url(x.publicRegistry.dataset))+'">official source ↗</a></small>':'');
 }
 
