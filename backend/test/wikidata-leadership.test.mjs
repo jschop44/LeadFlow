@@ -75,8 +75,9 @@ test('accepts a sourced owner claim only when Wikidata explicitly identifies a h
  person.personType={value:'Human'};
  const found=verifiedWikidataPeople([person],'https://example.com');
  assert.equal(found.length,1);
- assert.equal(found[0].role,'Owner');
+ assert.equal(found[0].role,'Unverified ownership claim');
  assert.equal(found[0].source,'https://www.wikidata.org/entity/Q123');
+ assert.equal(found[0].ownershipStatus,'current_control_unknown');
  const bad=structuredClone(person);bad.officialWebsite.value='https://example.com.attacker.org';
  assert.equal(verifiedWikidataPeople([bad],'https://example.com').length,0);
 });
@@ -90,7 +91,7 @@ test('SPARQL public ownership lookup excludes ended claims and non-human ownersh
   return Response.json({results:{bindings:[owner]}});
  }});
  const found=await lookup('https://example.com');
- assert.equal(found[0].role,'Owner');
+ assert.equal(found[0].role,'Unverified ownership claim');
  assert.match(captured,/ps:P127/);
  assert.match(captured,/pq:P582/);
  assert.match(captured,/wd:Q5/);
@@ -110,6 +111,6 @@ test('MediaWiki claims fallback accepts only human registered owners',async()=>{
  }});
  const people=await lookup('https://example.com');
  assert.equal(people.length,1);
- assert.equal(people[0].role,'Owner');
+ assert.equal(people[0].role,'Unverified ownership claim');
  assert.equal(calls.length,4);
 });
