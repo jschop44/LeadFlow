@@ -2,7 +2,11 @@ import {createHash} from 'node:crypto';
 let pool=null;
 export async function initLeadLibrary(){
  if(!process.env.DATABASE_URL)return false;
- try{const {Pool}=await import('pg');pool=new Pool({connectionString:process.env.DATABASE_URL,max:2,ssl:{rejectUnauthorized:true}});
+ try{const {Pool}=await import('pg');
+ // Local CI databases need no TLS; remote Neon/database connections remain TLS-only.
+ const host=new URL(process.env.DATABASE_URL).hostname.toLowerCase();
+ const loopback=['localhost','127.0.0.1','[::1]'].includes(host);
+ pool=new Pool({connectionString:process.env.DATABASE_URL,max:2,ssl:loopback?false:{rejectUnauthorized:true}});
  await pool.query('CREATE TABLE IF NOT EXISTS leadflow_lead_library (scope TEXT NOT NULL, lead_key TEXT NOT NULL, data JSONB NOT NULL, saved BOOLEAN NOT NULL DEFAULT FALSE, seen BOOLEAN NOT NULL DEFAULT FALSE, updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), PRIMARY KEY(scope,lead_key))');
  await pool.query('CREATE INDEX IF NOT EXISTS leadflow_lead_library_updated_idx ON leadflow_lead_library(scope,updated_at DESC)');
  return true}catch(e){console.warn('Lead library unavailable:',e.message);await pool?.end().catch(()=>{});pool=null;return false}
