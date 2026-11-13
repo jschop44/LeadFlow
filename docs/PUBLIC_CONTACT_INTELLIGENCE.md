@@ -23,6 +23,20 @@ LeadFlow builds contact evidence from sources that are free/open, explicitly pub
 - Continue the independent Wikidata founder/CEO cross-check as a different source of evidence; no attribution to a particular business email unless the direct company publication explicitly associates them.
 - Return `sourceSummary` and `independentLeadershipSources` so clients can distinguish a verified lookup from a partial source failure.
 
+## Consistent preferred-contact selection
+
+The displayed company email, outreach recipient suggestion, lead-quality email score, and CSV `email` field now use the **same source-ranked selection**:
+
+1. An explicitly published email from permitted company website pages, with the original source URL and available public DNS evidence. Company-published named contacts, company-domain addresses and corroborating pages are prioritized by the backend.
+2. A legacy website-enriched address when newer per-email source evidence is unavailable.
+3. An email attributed to the business in a public listing, marked **unverified** (including listings that call it an owner's email).
+
+An email domain with observed `null_mx` or `domain_not_found` is **never automatically suggested**, including an alternate address at the same flagged domain in the listing. This does not prove other email domains or individual mailboxes are deliverable. An email whose public DNS lookup timed out remains **unknown**, not invalid.
+
+The recipient input remains editable. Once the user explicitly edits that field, subsequent website enrichment does not overwrite it; clearing the field does not silently restore an unreviewed listing email at send time. Sending or opening the email composer still requires explicit user confirmation, and a manually entered address at a DNS-flagged domain triggers an additional warning in the existing confirmation text. No automated emailing is added.
+
+CSV exports retain raw listing email and ownerEmail fields separately for provenance, plus the chosen email, `preferredEmailSource`, `preferredEmailRouting`, individual published-email sources and mail-domain evidence. Check the source before deciding whether contact is appropriate.
+
 ## Exclusions and protections
 
 No personal/home addresses, private social content, paywall bypass, CAPTCHA bypass, password access, harvested unrelated third-party contacts, synthetic email pattern generation, SMTP mailbox probing, high-volume unsolicited outreach, or scraping platforms that prohibit it. A public email is not necessarily deliverable or permission to send marketing. Review sources and outreach regulations.
