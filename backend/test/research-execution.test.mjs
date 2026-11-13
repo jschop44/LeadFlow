@@ -34,7 +34,8 @@ test('actual enrichment runs allowed pages concurrently and retains partial evid
   robotsOK:(_,path)=>path!=='/team',wikidataLeadership:async()=>[],
   get:async url=>{visited.push(url);peak=Math.max(peak,++active);await new Promise(setImmediate);active--;if(url.endsWith('/about'))throw Error('Unavailable');return 'content'},
   extract:(_,source)=>({emails:[source+'/mail'],phones:[],socials:[]}),peopleFromStructuredData:()=>[],peopleFromVisibleText:()=>[],
-  discoverContactPages:()=>[],mergePublicContactEvidence:sources=>({emails:sources.flatMap(x=>x.emails||[]),phones:[],socials:[],emailEvidence:[],namedContacts:[]}),reconcilePublicLeadership:claims=>claims});
+  discoverContactPages:()=>[],mergePublicContactEvidence:sources=>({emails:sources.flatMap(x=>x.emails||[]),phones:[],socials:[],emailEvidence:sources.flatMap(x=>x.emails||[]).map(email=>({email})),namedContacts:[]}),reconcilePublicLeadership:claims=>claims,
+  mailDomainInspector:async()=>({}),applyMailDomainEvidence:items=>items,evidenceCount:()=>0});
  vm.runInContext(code.slice(start,end),context);
  const result=await context.research('https://example.org/path');
  assert.equal(peak,3);assert.equal(visited.length,8);assert.equal(result.sources.length,7);

@@ -14,6 +14,7 @@ import {createCatalogStore} from './catalog-store.js';
 import {createSearchHistory} from './search-history.js';
 import {wikidataLeadership} from './wikidata-leadership.js';
 import {reconcilePublicLeadership} from './leadership-reconciliation.js';
+import {mailDomainInspector,applyMailDomainEvidence} from './email-domain-evidence.js';
 import {extractPublicContacts,mergePublicContactEvidence,discoverContactPages} from './contact-evidence.js';
 import {growthLensAudit,auditOpportunity,personalizedDraft,createAuditCache} from './growthlens-outreach.js';
 import {createPageSpeedAuditor} from './integrations/pagespeed.js';
@@ -89,6 +90,7 @@ function peopleFromVisibleText(html,source){
  for(const line of lines.slice(0,1200)){if(line.length>150)continue;for(const [i,re] of patterns.entries()){const m=line.match(re);if(!m)continue;const name=(i===0?m[1]:m[2]).trim(),position=(i===0?m[2]:m[1]).trim();if(!found.some(p=>p.name===name&&p.role===position))found.push({name,role:position,source,evidence:line.slice(0,150)});break}}
  return found.slice(0,12)
 }
+function evidenceCount(rows,status){return new Set(rows.filter(x=>x.mailDomain?.status===status).map(x=>x.email.split('@')[1])).size;}
 async function research(website){
  const u=await validate(website),root=u.origin;
  let robots;
@@ -113,12 +115,16 @@ async function research(website){
  const sources=[...(home?[{url:root+'/',...extract(home,root+'/'),
   people:[...peopleFromStructuredData(home,root+'/'),...peopleFromVisibleText(home,root+'/')]}]:[]),...pages.filter(Boolean)];
  const combined=mergePublicContactEvidence(sources,root);
+ // Domain MX records are only a mail-routing signal, never inbox or owner validation.
+ const domainEvidence=await mailDomainInspector(combined.emailEvidence);
+ const emailEvidence=applyMailDomainEvidence(combined.emailEvidence,domainEvidence);
  const externalPeople=await independentLookup;
  const people=reconcilePublicLeadership([...combined.namedContacts,...sources.flatMap(x=>x.people||[]),...externalPeople],root);
- return {website:root,emails:combined.emails,phones:combined.phones,socials:combined.socials,people,
-  emailEvidence:combined.emailEvidence,namedContacts:combined.namedContacts,
+ return {website:root,emails:emailEvidence.map(item=>item.email),phones:combined.phones,socials:combined.socials,people,
+  emailEvidence,namedContacts:combined.namedContacts,
   sources,sourceSummary:{publicPagesReviewed:sources.length,discoveredPageLinks:discovered.length,
-   businessDomainEmails:combined.emailEvidence.filter(x=>x.businessDomainMatch).length,
+   businessDomainEmails:emailEvidence.filter(x=>x.businessDomainMatch).length,
+   domainsWithMx:evidenceCount(emailEvidence,'mx_present'),domainsDeclaringNoMail:evidenceCount(emailEvidence,'null_mx'),
    publishedNamedContacts:combined.namedContacts.length},
   independentLeadershipSources:externalPeople.length?['Wikidata']:[],
   note:'Observed public business website contacts with page citations. Emails are not inferred; ownership, employment and deliverability are not independently verified.'}
