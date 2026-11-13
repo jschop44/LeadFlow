@@ -49,3 +49,6 @@ test('merge refuses cross-domain evidence injection',()=>{
  const x=mergePublicContactEvidence([{url:'https://another-business.com/contact',...extractPublicContacts('<a href="mailto:info@another-business.com">mail</a>','https://another-business.com/contact')}],website);
  assert.deepEqual(x.emails,[]);
 });
+test('nested relative contact links resolve against the retrieved document URL',()=>{
+ assert.deepEqual(discoverContactPages('<a href="team">Team</a><a href="../contact">Contact</a><a href="https://another-business.com/team">Other</a>',website+'about/',4),['/contact','/about/team']);
+});

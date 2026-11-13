@@ -149,7 +149,7 @@ export function mergePublicContactEvidence(sources,website){
 export function discoverContactPages(html,site,limit=5){
  const root=new URL(site).origin,found=[],weights={contact:8,about:7,team:6,leadership:9,management:7,staff:6,people:5,founder:8,owner:7,'our-story':5};
  for(const href of urls(html)){
-  let u;try{u=new URL(href,root)}catch{continue}
+  let u;try{u=new URL(href,site)}catch{continue}
   if(!sameDomain(u.href,root)||!['https:','http:'].includes(u.protocol)||u.username||u.password||u.port&& !['80','443'].includes(u.port))continue;
   if(u.search||u.pathname==='/'||/\.(?:pdf|png|jpg|jpeg|webp|gif|svg|docx?|zip)$/i.test(u.pathname))continue;
   const path=u.pathname.replace(/\/+$/,'');

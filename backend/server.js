@@ -1,4 +1,5 @@
 import {createRegionalSearch,matchesIndexedNiche,resolveUSState} from './regional-index.js';
+import {supportsCatalogNiche} from './catalog-niche-evidence.js';
 import {createSearchRunner} from './search-execution.js';
 import {createHostPacer} from './provider-pacing.js';
 import {serveFrontend} from './frontend.js';
@@ -190,7 +191,7 @@ configureProspectProvider(()=>{
  });
  const nationwide=Array.from(onlineCatalog.values()).filter(row=>['Online','Local + Online','Web presence'].includes(row.classification)).map(row=>{
   const tags=row.element?.tags||{};
-  return {key:'nationwide:'+row.domain,name:tags.name||'',website:tags.website||'',city:tags['addr:city']||'',niche:row.niches?.[0]||'',source:'Wikidata nationwide verified catalog'};
+  return {key:'nationwide:'+row.domain,name:tags.name||'',website:tags.website||'',city:tags['addr:city']||'',niche:row.niches?.find(n=>supportsCatalogNiche(row,n))||'',source:'Wikidata nationwide verified catalog'};
  });
  // Interleave catalog and mapped records so neither source starves when batches are capped.
  const combined=[];
@@ -202,7 +203,7 @@ configureProspectProvider(()=>{
  for(const item of combined){
   const domain=catalogDomain(item.website);
   const key=domain?'domain:'+domain:item.key;
-  if(!item.name||seen.has(key))continue;
+  if(!item.name||!item.niche||seen.has(key))continue;
   seen.add(key);entries.push(item);
  }
  if(!entries.length)return [];
@@ -308,7 +309,7 @@ async function inspectBusinessWebsite(raw){
   // Reuse the restricted-host, DNS, response-size and redirect protections of get().
   const html=await get(raw);
   const shopify=/cdn\.shopify\.com|shopify\.theme|shopify-section|shopify-payment-button|shopify\.com\/s\/files/i.test(html);
-  const woo=/woocommerce|wp-content\/plugins\/woocommerce|wc-block-components/i.test(html);
+  const woo=/wp-content\/plugins\/woocommerce(?:\/|[-.])|\bclass\s*=\s*["'][^"']*\b(?:woocommerce|wc-block-components)[\w-]*(?:\s|["'])/i.test(html);
   const commerce=/\badd to cart\b|\bcheckout\b|\bbuy now\b|\/cart(?:["'/?#]|\b)|product-form__submit/i.test(html);
   const booking=/\bbook online\b|\bvirtual consultation\b|\bonline appointment\b|\bonline course\b/i.test(html);
   const platform=shopify?'Shopify':woo?'WooCommerce':'Not verified';
@@ -375,8 +376,9 @@ async function discoverNationwideCandidates(){
    const info=await inspectBusinessWebsite(website);
    if(!info.websiteReachable){rejected.notVerifiedOnline++;continue}
    const evidence='Wikidata US country statement and successful public website inspection';
-   const element={type:'node',id:entity.id,tags:{name,website},classification:info.classification,platform:info.platform,classificationEvidence:info.classificationEvidence,usEvidence:evidence};
+   const element={type:'node',id:entity.id,tags:{name,website,description:entity.descriptions?.en?.value||''},classification:info.classification,platform:info.platform,classificationEvidence:info.classificationEvidence,usEvidence:evidence,independentSource:'https://www.wikidata.org/wiki/'+entity.id};
    const row={domain,niches:[niche],checkedAt:Date.now(),classification:info.classification,platform:info.platform,evidence:info.classificationEvidence,usEvidence:evidence,element};
+   if(!supportsCatalogNiche(row,niche))continue;
    await catalogStore.save(row);verified++;
   }
   console.log('Nationwide discovery',JSON.stringify({niche,searchOffset:offset,candidates:ids.length,verified,rejected}));
@@ -444,7 +446,7 @@ async function verifyProductMerchants(niche){
  }
 }
 async function searchIndexedOnlineBusinesses(niche){
- const records=[...onlineCatalog.values()].filter(v=>v.niches.includes(niche)&&['Online','Local + Online'].includes(v.classification)).sort((a,b)=>(b.checkedAt||0)-(a.checkedAt||0));
+ const records=[...onlineCatalog.values()].filter(v=>supportsCatalogNiche(v,niche)&&['Online','Local + Online'].includes(v.classification)).sort((a,b)=>(b.checkedAt||0)-(a.checkedAt||0));
  const elements=records.slice(0,100).map(v=>({...v.element,sourceAgreement:['Indexed US business','Observed public website signals']}));
  // Refresh outside the request path. Search latency is independent of website availability.
  void refreshOnlineCatalog();

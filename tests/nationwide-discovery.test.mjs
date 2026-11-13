@@ -24,6 +24,10 @@ test('unavailable website remains unverified',async()=>{
  assert.notEqual(result.websiteReachable,true);
  assert.equal(result.classification,'Unverified');
 });
+test('mentioning WooCommerce does not establish the storefront platform',async()=>{
+ assert.equal((await inspect('<p>We consult on WooCommerce projects</p>')).platform,'Not verified');
+ assert.equal((await inspect('<script src="/wp-content/plugins/woocommerce/assets/js/cart.js"></script>')).platform,'WooCommerce');
+});
 test('nationwide catalog feeds automation and retains provenance',()=>{
  assert.match(source,/\['Online','Local \+ Online','Web presence'\]\.includes\(row\.classification\)/);
  assert.match(source,/source:'Wikidata nationwide verified catalog'/);
