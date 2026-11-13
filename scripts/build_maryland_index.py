@@ -63,6 +63,11 @@ class Collect(osmium.SimpleHandler):
   for niche,pattern in SPECIALIZED.items():
    if niche in niches and not pattern.search(searchable) and niche in ("Business coaches","Couples counselors","Wedding planners","Nutritionists","Med spas","Fitness coaches"):niches.remove(niche)
    if pattern.search(searchable) and niche not in niches:niches.append(niche)
+  # Pizza must be an actual restaurant/fast-food cuisine, not a pizza-themed
+  # supplier or a vaguely food-related business. Keep the source cuisine tag
+  # so the runtime can independently enforce the same evidence rule.
+  if tags.get("amenity") in ("restaurant","fast_food") and re.search(r"(?:^|[;,\s])pizza(?:$|[;,\s])",tags.get("cuisine",""),re.I):
+   niches.append("Pizza restaurants")
   if not niches:return
   try:
    if typ=="node":lat,lon=obj.location.lat,obj.location.lon
@@ -73,7 +78,7 @@ class Collect(osmium.SimpleHandler):
   except (ValueError,AttributeError):return
   if not inside_region(lon,lat):return
   if tags.get("addr:country") and tags["addr:country"] not in ("US","USA","United States"):return
-  keep={k:v for k,v in tags.items() if k in ("name","website","contact:website","phone","contact:phone","addr:city","addr:postcode","addr:street","addr:housenumber","office","amenity","healthcare","leisure","beauty","addr:state","addr:country","email","contact:email","contact:facebook","contact:instagram","contact:linkedin","contact:twitter")}
+  keep={k:v for k,v in tags.items() if k in ("name","website","contact:website","phone","contact:phone","addr:city","addr:postcode","addr:street","addr:housenumber","office","amenity","healthcare","leisure","beauty","addr:state","addr:country","email","contact:email","contact:facebook","contact:instagram","contact:linkedin","contact:twitter","cuisine","description","service","services")}
   rows[typ+"/"+str(obj.id)]={"type":typ,"id":obj.id,"lat":round(lat,6),"lon":round(lon,6),"tags":keep,"niches":niches,"sourceAgreement":["OpenStreetMap Geofabrik "+(REGION["name"] if REGION else "Maryland")+" extract"]}
  def node(self,obj):self.add(obj,"node")
  def way(self,obj):self.add(obj,"way")
