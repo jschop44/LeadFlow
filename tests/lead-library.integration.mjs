@@ -16,6 +16,11 @@ assert.equal((await secondBrowser('list',{filter:'new'})).leads.some(x=>x.websit
 await firstBrowser('upsert',{leads:[{...lead,seen:true,saved:true}],updateSaved:true});
 assert.equal((await secondBrowser('list',{filter:'saved'})).leads.some(x=>x.website===website&&x.saved),true,'Saved lead missing on second session');
 assert.equal((await secondBrowser('list',{filter:'seen'})).leads.some(x=>x.website===website),true,'Previously found lead missing');
+const membership=await secondBrowser('check-seen',{leads:[lead,{...lead,name:'Different firm',website:'https://other.example'}]});
+assert.deepEqual(membership.seenKeys,['domain:'+new URL(website).hostname], 'Second device must see exact previously shown membership');
+assert.deepEqual((await otherUser('check-seen',{leads:[lead]})).seenKeys,[], 'Seen evidence must remain isolated by API token');
+await assert.rejects(secondBrowser('check-seen',{leads:Array.from({length:101},()=>lead)}),/at most 100/i);
+
 await secondBrowser('upsert',{leads:[{...lead,seen:true,saved:false}]});
 assert.equal((await firstBrowser('list',{filter:'saved'})).leads.some(x=>x.website===website),true,'Background discovery cleared Saved');
 await secondBrowser('upsert',{leads:[{...lead,seen:true,saved:false}],updateSaved:true});
