@@ -63,6 +63,10 @@ jobs:
           DATABASE_URL: postgresql://kb_test:kb_test_password@127.0.0.1:5432/kb_test
           KNOWLEDGE_BASE_ENABLED: 'true'
         run: node --test --test-concurrency=1 backend/integration/knowledge-postgres.mjs backend/integration/intelligence-automation-postgres.mjs
+      - name: Verify cross-device lead history and save transitions in PostgreSQL
+        env:
+          DATABASE_URL: postgresql://kb_test:kb_test_password@127.0.0.1:5432/kb_test
+        run: node tests/lead-library.integration.mjs
       - name: Validate expanded Maryland coverage
         run: |
           node --input-type=module <<'NODE'
