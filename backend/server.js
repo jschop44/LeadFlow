@@ -1,5 +1,6 @@
 import {createRegionalSearch,matchesIndexedNiche,resolveUSState} from './regional-index.js';
 import {createSearchRunner} from './search-execution.js';
+import {createHostPacer} from './provider-pacing.js';
 import {serveFrontend} from './frontend.js';
 import {createHealthProbe} from './health-probe.js';
 import {mapConcurrent,createResearchRunner} from './research-execution.js';
@@ -12,6 +13,7 @@ import http from 'node:http';
 import {createCatalogStore} from './catalog-store.js';
 import {createSearchHistory} from './search-history.js';
 import {wikidataLeadership} from './wikidata-leadership.js';
+import {extractPublicContacts,mergePublicContactEvidence,discoverContactPages} from './contact-evidence.js';
 import {growthLensAudit,auditOpportunity,personalizedDraft,createAuditCache} from './growthlens-outreach.js';
 import {createPageSpeedAuditor} from './integrations/pagespeed.js';
 import {createHubSpotCompanySync} from './integrations/hubspot.js';
@@ -56,11 +58,17 @@ configureAuditProvider(async website=>{
  return {status:'verified',finding:finding.finding+': '+finding.action};
 });
 function robotsOK(text,path){const groups=text.split(/(?=^user-agent\s*:)/im);let rules=[];for(const group of groups){const lines=group.split(/\r?\n/).map(x=>x.split('#')[0].trim());const agents=lines.filter(x=>/^user-agent\s*:/i.test(x)).map(x=>x.split(':').slice(1).join(':').trim().toLowerCase());if(!agents.includes('*')&&!agents.includes('leadflowbusinessresearch/1.0'))continue;for(const line of lines){const m=line.match(/^(allow|disallow)\s*:\s*(.*)$/i);if(m&&m[2])rules.push({allow:m[1].toLowerCase()==='allow',path:m[2]})}}const matched=rules.filter(r=>path.startsWith(r.path.split('*')[0])).sort((a,b)=>b.path.length-a.path.length)[0];return !matched||matched.allow}
-function extract(html,source){const plain=html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,' ').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,' ');const emails=[...new Set((plain.match(/[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi)||[]).filter(e=>!/(example\.|test\.|\.png$|\.jpg$|\.svg$|sentry)/i.test(e)))].slice(0,20);const phones=[...new Set((plain.replace(/<[^>]+>/g,' ').match(/(?:\+1[ .-]?)?\(?\d{3}\)?[ .-]?\d{3}[ .-]?\d{4}/g)||[]))].slice(0,10);const social=[];for(const m of plain.matchAll(/href\s*=\s*["']([^"']+)["']/gi)){try{const u=new URL(m[1],source);if(['linkedin.com','facebook.com','instagram.com','youtube.com','x.com','twitter.com'].some(h=>u.hostname===h||u.hostname.endsWith('.'+h))&&!social.includes(u.href))social.push(u.href)}catch{}}return {emails,phones,socials:social.slice(0,15)}}
+function extract(html,source){return extractPublicContacts(html,source)}
 function peopleFromStructuredData(html,source){
  const found=[];const add=(person,role)=>{if(!person)return;const name=typeof person==='string'?person:person.name;if(typeof name!=='string'||name.length<4||name.length>90)return;const clean=name.replace(/\s+/g,' ').trim();if(!/^[\p{L}][\p{L} .,'-]+$/u.test(clean))return;if(!found.some(x=>x.name.toLowerCase()===clean.toLowerCase()&&x.role===role))found.push({name:clean,role,source})};
  const walk=(value,depth=0)=>{if(!value||depth>6)return;if(Array.isArray(value)){value.forEach(x=>walk(x,depth+1));return}if(typeof value!=='object')return;
- const type=String(value['@type']||'').toLowerCase();if(type.includes('organization')||type.includes('localbusiness')||type.includes('corporation')){for(const role of ['founder','employee','member']){const v=value[role];if(v)(Array.isArray(v)?v:[v]).forEach(p=>add(p,role==='founder'?'Founder':'Team member'))}if(value.ceo)(Array.isArray(value.ceo)?value.ceo:[value.ceo]).forEach(p=>add(p,'CEO'));if(value.founder)(Array.isArray(value.founder)?value.founder:[value.founder]).forEach(p=>add(p,'Founder'));if(value.founders)(Array.isArray(value.founders)?value.founders:[value.founders]).forEach(p=>add(p,'Founder'))}
+ const type=String(value['@type']||'').toLowerCase();if(type.includes('organization')||type.includes('localbusiness')||type.includes('corporation')){
+ const claimed=String(value.url||value['@id']||'');
+ if(/^https?:\/\//i.test(claimed)){
+  try{const actual=new URL(claimed).hostname.toLowerCase().replace(/^www\./,''),expected=new URL(source).hostname.toLowerCase().replace(/^www\./,'');if(actual!==expected)return}
+  catch{return}
+ }
+ for(const role of ['founder','employee','member']){const v=value[role];if(v)(Array.isArray(v)?v:[v]).forEach(p=>add(p,role==='founder'?'Founder':'Team member'))}if(value.ceo)(Array.isArray(value.ceo)?value.ceo:[value.ceo]).forEach(p=>add(p,'CEO'));if(value.founder)(Array.isArray(value.founder)?value.founder:[value.founder]).forEach(p=>add(p,'Founder'));if(value.founders)(Array.isArray(value.founders)?value.founders:[value.founders]).forEach(p=>add(p,'Founder'))}
  if(value['@graph'])walk(value['@graph'],depth+1);if(value.mainEntity)walk(value.mainEntity,depth+1);
  };
  for(const m of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){try{walk(JSON.parse(m[1]))}catch{}}
@@ -76,8 +84,42 @@ function peopleFromVisibleText(html,source){
  for(const line of lines.slice(0,1200)){if(line.length>150)continue;for(const [i,re] of patterns.entries()){const m=line.match(re);if(!m)continue;const name=(i===0?m[1]:m[2]).trim(),position=(i===0?m[2]:m[1]).trim();if(!found.some(p=>p.name===name&&p.role===position))found.push({name,role:position,source,evidence:line.slice(0,150)});break}}
  return found.slice(0,12)
 }
-async function research(website){const u=await validate(website);const root=u.origin;let robots;try{const r=await fetch(root+'/robots.txt',{redirect:'manual',signal:AbortSignal.timeout(7000)});if(r.status===404)robots='';else if(r.ok)robots=(await r.text()).slice(0,100000);else throw Error('Robots policy unavailable')}catch{throw Error('Robots policy unavailable')}const independentLookup=wikidataLeadership(root).catch(e=>{console.warn('Independent leadership lookup unavailable:',e.message);return []});const pages=await mapConcurrent(['/','/contact','/contact-us','/about','/about-us','/team','/leadership','/our-team','/management'],3,async path=>{if(!robotsOK(robots,path))return null;try{const html=await get(root+path);return {url:root+path,...extract(html,root+path),people:[...peopleFromStructuredData(html,root+path),...peopleFromVisibleText(html,root+path)]}}catch{return null}});const sources=pages.filter(Boolean);const externalPeople=await independentLookup;return {website:root,emails:[...new Set(sources.flatMap(x=>x.emails))],phones:[...new Set(sources.flatMap(x=>x.phones))],socials:[...new Set(sources.flatMap(x=>x.socials))],people:[...sources.flatMap(x=>x.people||[]),...externalPeople].filter((p,i,a)=>a.findIndex(v=>v.name===p.name&&v.role===p.role)===i),sources,independentLeadershipSources:externalPeople.length?['Wikidata']:[],note:'Public website findings; email ownership and deliverability not verified.'}}
-const runResearch=createResearchRunner(research);
+async function research(website){
+ const u=await validate(website),root=u.origin;
+ let robots;
+ try{const response=await fetch(root+'/robots.txt',{redirect:'manual',signal:AbortSignal.timeout(7000)});
+  if(response.status===404)robots='';
+  else if(response.ok)robots=(await response.text()).slice(0,100000);
+  else throw Error('Robots policy unavailable');
+ }catch{throw Error('Robots policy unavailable')}
+ const independentLookup=wikidataLeadership(root).catch(e=>{console.warn('Independent leadership lookup unavailable:',e.message);return []});
+ const home=robotsOK(robots,'/')?await get(root+'/').catch(()=>null):null;
+ const fixed=['/contact','/contact-us','/about','/about-us','/team','/leadership','/our-team','/management'];
+ // Prefer links that the business actually publishes; do not crawl arbitrary site pages.
+ const discovered=home?discoverContactPages(home,root,4):[];
+ const paths=[...new Set([...discovered,...fixed])].slice(0,12);
+ const pages=await mapConcurrent(paths,3,async path=>{
+  if(!robotsOK(robots,path))return null;
+  try{const html=await get(root+path);
+   return {url:root+path,...extract(html,root+path),
+    people:[...peopleFromStructuredData(html,root+path),...peopleFromVisibleText(html,root+path)]};
+  }catch{return null}
+ });
+ const sources=[...(home?[{url:root+'/',...extract(home,root+'/'),
+  people:[...peopleFromStructuredData(home,root+'/'),...peopleFromVisibleText(home,root+'/')]}]:[]),...pages.filter(Boolean)];
+ const combined=mergePublicContactEvidence(sources,root);
+ const externalPeople=await independentLookup;
+ const people=[...combined.namedContacts,...sources.flatMap(x=>x.people||[]),...externalPeople]
+  .filter((person,i,all)=>person?.name&&person?.role&&all.findIndex(v=>v.name===person.name&&v.role===person.role)===i).slice(0,30);
+ return {website:root,emails:combined.emails,phones:combined.phones,socials:combined.socials,people,
+  emailEvidence:combined.emailEvidence,namedContacts:combined.namedContacts,
+  sources,sourceSummary:{publicPagesReviewed:sources.length,discoveredPageLinks:discovered.length,
+   businessDomainEmails:combined.emailEvidence.filter(x=>x.businessDomainMatch).length,
+   publishedNamedContacts:combined.namedContacts.length},
+  independentLeadershipSources:externalPeople.length?['Wikidata']:[],
+  note:'Observed public business website contacts with page citations. Emails are not inferred; ownership, employment and deliverability are not independently verified.'}
+}
+const runResearch=createResearchRunner(research,2,{cacheTtlMs:60*60*1000,maxCached:120});
 const escape=s=>String(s||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function draft({business,contact,service,benefit,sender,unsubscribe}){const name=String(contact||'').trim()||'there';const company=String(business||'').trim();if(!company||!service||!sender||!unsubscribe)throw Error('Business, service, sender and unsubscribe instructions required');const subject='A quick idea for '+company;const body='Hi '+name+',\n\nI came across '+company+' and thought '+String(service).trim()+' might be relevant. '+(benefit?String(benefit).trim():'Would you be open to a brief conversation?')+'\n\nIf this is not relevant, no worries.\n\n'+sender+'\n\nTo opt out: '+unsubscribe;const html='<div style="font-family:Arial,sans-serif;max-width:600px;margin:auto;color:#243047;line-height:1.7"><div style="border-top:5px solid #1dbb97;padding:24px"><p>Hi '+escape(name)+',</p><p>I came across <strong>'+escape(company)+'</strong> and thought '+escape(service)+' might be relevant.</p><p>'+escape(benefit||'Would you be open to a brief conversation?')+'</p><p>If this is not relevant, no worries.</p><p>'+escape(sender)+'</p><hr><small>To opt out: '+escape(unsubscribe)+'</small></div></div>';return {subject,text:body,html,followUps:[{afterDays:4,subject:'Re: '+subject,text:'Hi '+name+', just following up once in case my earlier note got buried. If it is not relevant, I will close the loop.\n\n'+sender+'\nTo opt out: '+unsubscribe},{afterDays:9,subject:'Re: '+subject,text:'Hi '+name+', last note from me. Happy to share more if useful; otherwise I will not follow up further.\n\n'+sender+'\nTo opt out: '+unsubscribe}],status:'draft_only',sendingEnabled:false}}
 
@@ -201,7 +243,15 @@ if(businessIndex.size===0)await refreshSourceSnapshot();
 setInterval(refreshSourceSnapshot,6*60*60*1000).unref();
 const searchCache=new Map();
 const nicheTags={'Financial advisors':'["office"~"financial_advisor|financial|investment|insurance"]','Real estate agents':'["office"="estate_agent"]','Accountants':'["office"="accountant"]','Insurance agencies':'["office"="insurance"]','Business coaches':'["office"="consulting"]','Marketing agencies':'["office"="advertising"]','Fitness coaches':'["leisure"="fitness_centre"]','Dental practices':'["amenity"="dentist"]','Med spas':'["beauty"="spa"]','Nutritionists':'["healthcare"="nutrition_counselling"]','Chiropractors':'["healthcare"="chiropractor"]','Wellness clinics':'["healthcare"="clinic"]','Dating coaches':'["name"~"dating coach|dating consultant",i]','Matchmakers':'["name"~"matchmak",i]','Couples counselors':'["healthcare"="psychotherapist"]','Wedding planners':'["office"="event_planner"]','Relationship coaches':'["name"~"relationship coach|relationship therap",i]'};
-async function fetchJSON(url,options={}){const r=await fetch(url,{...options,signal:options.signal||AbortSignal.timeout(18000),headers:{'user-agent':'LeadFlowBusinessDiscovery/1.0 (contact: leadflow project)','accept':'application/json',...(options.headers||{})}});if(!r.ok)throw Error('Public listing provider returned '+r.status);return r.json()}
+const nominatimRequests=createHostPacer({minIntervalMs:1100,ttlMs:6*60*60*1000});
+async function fetchJSON(url,options={}){
+ const retrieve=async()=>{
+  const r=await fetch(url,{...options,signal:options.signal||AbortSignal.timeout(18000),headers:{'user-agent':'LeadFlowBusinessDiscovery/1.0 (contact: leadflow project)','accept':'application/json',...(options.headers||{})}});
+  if(!r.ok)throw Error('Public listing provider returned '+r.status);
+  return r.json();
+ };
+ return new URL(url).hostname==='nominatim.openstreetmap.org'?nominatimRequests(url,retrieve):retrieve();
+}
 async function nominatimFallback(area,niche){const terms={'Financial advisors':'financial advisor','Real estate agents':'real estate agency','Accountants':'accountant','Insurance agencies':'insurance agency','Business coaches':'business consultant','Marketing agencies':'marketing agency','Fitness coaches':'fitness center','Dental practices':'dentist','Med spas':'spa','Nutritionists':'nutritionist','Chiropractors':'chiropractor','Wellness clinics':'clinic','Dating coaches':'dating service','Matchmakers':'matchmaking','Couples counselors':'counselor','Wedding planners':'wedding planner','Relationship coaches':'counselor'};const term=terms[niche]||niche;const q=term+' near '+area+', United States';try{const data=await fetchJSON('https://nominatim.openstreetmap.org/search?format=json&addressdetails=1&extratags=1&limit=40&q='+encodeURIComponent(q));return data.filter(x=>x.display_name).map(x=>({type:x.osm_type||'place',id:x.osm_id||x.place_id,lat:Number(x.lat),lon:Number(x.lon),tags:{name:x.name||x.display_name.split(',')[0],website:x.extratags?.website||'',phone:x.extratags?.phone||'',['addr:city']:x.address?.city||x.address?.town||''},sourceAgreement:['Nominatim search'],sourceCount:1,mlScore:0}))}catch{return []}}
 const regionalSearch=createRegionalSearch();
 async function searchBusinesses(area,niche){area=String(area||'').trim().slice(0,120);if(area.length<2||!nicheTags[niche])throw Error('Enter a valid city or state and niche');const zipMatch=area.match(/(?:^|\D)(\d{5})(?:\D|$)/);const key=(area+'|'+niche).toLowerCase(),cached=searchCache.get(key);if(cached&&Date.now()-cached.at<30000&&cached.result.catalogSize===onlineCatalog.size)return {...cached.result,cached:true};// State-only requests use the complete published state index, not Nominatim's
