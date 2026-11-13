@@ -15,7 +15,7 @@ For Gmail authorization, the frontend passes the exact `https://jschop44.github.
 
 ## First-time activation
 
-In the GitHub repository, open **Settings > Pages** and set **Build and deployment > Source** to **GitHub Actions** if the Pages deployment has not already been enabled. Then check **Actions > Deploy LeadFlow frontend to GitHub Pages** for a successful `deploy-pages` job. Some repository plans and settings require the owner to enable Pages before first publication.
+**First-time Pages activation requires the repository owner.** On November 13, 2026, the initial Pages attempt failed when GitHub Actions tried to create the site: `Resource not accessible by integration` at `actions/configure-pages`. The workflow now checks whether Pages already exists and **skips the publication steps with an explicit notice**, rather than creating repeated failed Actions runs. Open **Settings > Pages** in the repository and set **Build and deployment > Source** to **GitHub Actions**. Then rerun the workflow from **Actions > Deploy LeadFlow frontend to GitHub Pages** (or make a subsequent verified UI change). Confirm the `deploy-pages` job actually ran; a preflight-only success is NOT a published site.
 
 Do not claim the Pages URL works until a successful Pages deployment is visible in GitHub Actions and the URL itself opens. If Pages is unavailable or disabled, continue using the backend-hosted **/app** interface.
 
