@@ -16,6 +16,18 @@ assert.equal((await secondBrowser('list',{filter:'new'})).leads.some(x=>x.websit
 await firstBrowser('upsert',{leads:[{...lead,seen:true,saved:true}],updateSaved:true});
 assert.equal((await secondBrowser('list',{filter:'saved'})).leads.some(x=>x.website===website&&x.saved),true,'Saved lead missing on second session');
 assert.equal((await secondBrowser('list',{filter:'seen'})).leads.some(x=>x.website===website),true,'Previously found lead missing');
+// A follow-up discovery often lacks the public contacts found on a previous visit.
+const rich={...lead,owner:'Taylor Brooks',email:'hello@integration.example',phone:'202-555-0144',socials:['https://www.linkedin.com/company/leadflow-fixture'],source:'Published company contact page'};
+await firstBrowser('upsert',{leads:[rich]});
+await secondBrowser('upsert',{leads:[{...lead,owner:'',email:'',phone:'',socials:[],source:'',seen:true}]});
+let preserved=(await firstBrowser('list',{filter:'all'})).leads.find(x=>x.website===website);
+for(const field of ['owner','email','phone','source'])assert.equal(preserved[field],rich[field],'Sparse rediscovery erased '+field);
+assert.deepEqual(preserved.socials,rich.socials,'Sparse rediscovery erased verified social links');
+await secondBrowser('upsert',{leads:[{...lead,phone:'202-555-0191'}]});
+preserved=(await firstBrowser('list',{filter:'all'})).leads.find(x=>x.website===website);
+assert.equal(preserved.phone,'202-555-0191','A newer nonempty verified phone must update');
+assert.equal(preserved.owner,rich.owner,'Updating a phone must not clear the public contact');
+
 const membership=await secondBrowser('check-seen',{leads:[lead,{...lead,name:'Different firm',website:'https://other.example'}]});
 assert.deepEqual(membership.seenKeys,['domain:'+new URL(website).hostname], 'Second device must see exact previously shown membership');
 assert.deepEqual((await otherUser('check-seen',{leads:[lead]})).seenKeys,[], 'Seen evidence must remain isolated by API token');
