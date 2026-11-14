@@ -485,6 +485,13 @@ const productMerchantSources={
    officePhrase:'Lifepro Fitness LLC 465 Industrial Way W Eatontown NJ 07724',
    officeLocation:'Eatontown, NJ, USA',
    productPage:'https://lifeprofitness.com/products/bioheal-plus-red-light-therapy-panel'},
+  // First-party company contact in Ocean, NJ and an official FX500 product.
+  // Each site and checkout signal must be fetched and observed before use.
+  {name:'American Wellness Authority',website:'https://awarlt.com/',
+   officePage:'https://awarlt.com/pages/contact-us',
+   officePhrase:'1301 W Park Ave Suite F Ocean NJ 07712',
+   officeLocation:'Ocean, NJ, USA',
+   productPage:'https://awarlt.com/products/fx500-red-light-therapy-panel'},
   {name:'iRESTORE',website:'https://www.irestorelaser.com/'}
  ],
  'Sauna blankets':[
@@ -502,7 +509,12 @@ const productMerchantSources={
    officePage:'https://lifeprofitness.com/pages/contact-us',
    officePhrase:'Lifepro Fitness LLC 465 Industrial Way W Eatontown NJ 07724',
    officeLocation:'Eatontown, NJ, USA',
-   productPage:'https://lifeprofitness.com/products/rejuvawrap'}
+   productPage:'https://lifeprofitness.com/products/rejuvawrap'},
+  {name:'American Wellness Authority',website:'https://awarlt.com/',
+   officePage:'https://awarlt.com/pages/contact-us',
+   officePhrase:'1301 W Park Ave Suite F Ocean NJ 07712',
+   officeLocation:'Ocean, NJ, USA',
+   productPage:'https://awarlt.com/products/hl500-infrared-sauna-blanket'}
  ],
  'Skin-care devices':[{name:'CurrentBody',website:'https://www.currentbody.com/'}]
 };
