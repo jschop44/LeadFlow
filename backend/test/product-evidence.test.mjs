@@ -38,3 +38,36 @@ test('commerce controls cannot be asserted from scripts, descriptions or disable
   '<button>Our newsletter and shop tips are available now</button>'
  ])assert.equal(observedCommerceControl(html),undefined,'No published active checkout proof from '+html.slice(0,70));
 });
+
+
+test('hidden template and ancestor markup cannot verify unavailable products',()=>{
+ for(const hidden of [
+  '<template><h1>Infrared sauna blanket</h1></template>',
+  '<div hidden><h1>Infrared sauna blanket</h1></div>',
+  '<div inert><section><h1>Infrared sauna blanket</h1></section></div>',
+  '<div aria-hidden="true"><p>Infrared sauna blanket</p></div>',
+  '<aside style="display: none"><h2>Infrared sauna blanket</h2></aside>',
+  '<aside style="visibility : hidden !important"><h2>Infrared sauna blanket</h2></aside>',
+  '<svg><text>Infrared sauna blanket</text></svg>',
+  '<script>const product = "Infrared sauna blanket";</script>',
+  '<!-- Infrared sauna blanket -->'
+ ])assert.equal(productTextMatches(hidden+'<main><h1>Other equipment</h1></main>','sauna blankets'),false,hidden);
+ const visible='<div hidden><p>Red light therapy</p></div>'+
+  '<main><h2>Infrared Sauna Blanket</h2></main>';
+ assert.equal(productTextMatches(visible,'red light therapy'),false);
+ assert.equal(productTextMatches(visible,'sauna blankets'),true);
+});
+
+test('a checkout nested in hidden source regions is not an observed active control',()=>{
+ for(const hidden of [
+  '<template><button>Add to Cart</button></template>',
+  '<div hidden><button>Buy Now</button></div>',
+  '<div aria-hidden="true"><button>Add to Bag</button></div>',
+  '<section inert><input type="submit" value="Add to Cart"></section>',
+  '<div style="display:none"><button>Buy Now</button></div>',
+  '<div style="visibility: hidden"><button>Buy Now</button></div>'
+ ])assert.equal(observedCommerceControl(hidden),undefined,hidden);
+ assert.equal(observedCommerceControl(
+  '<div hidden><button>Buy Now</button></div><main><button>Add to Bag</button></main>'
+ ),'Add to Bag');
+});
