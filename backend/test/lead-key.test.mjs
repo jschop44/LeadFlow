@@ -45,3 +45,14 @@ test('frontend cross-device history sends source evidence for accurate server ke
  assert.match(html,/name:item\.name,website:item\.website,address:item\.address,source:item\.source\|\|''/,
   'check-seen must transmit original OSM element provenance to the Neon library');
 });
+
+test('browser archive retains published contacts on sparse discovery and accepts updated nonempty values',()=>{
+ const published={name:'Local business',website:'https://business.example',owner:'Jordan Allen',email:'hello@business.example',phone:'202-555-0132',socials:['https://www.linkedin.com/company/local-business'],source:'Published contact page'};
+ const sparse={name:'Local business',website:'https://business.example',owner:'',email:'',phone:'',socials:[],source:'',seen:true};
+ const preserved=browser.mergeArchiveLead(published,sparse);
+ for(const field of ['owner','email','phone','source'])assert.equal(preserved[field],published[field]);
+ assert.equal(JSON.stringify(preserved.socials),JSON.stringify(published.socials));
+ assert.equal(preserved.seen,true);
+ assert.equal(browser.mergeArchiveLead(preserved,{phone:'202-555-0142'}).phone,'202-555-0142');
+ assert.equal(browser.mergeArchiveLead(preserved,{saved:false}).saved,false);
+});
