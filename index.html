@@ -581,7 +581,14 @@ async function verifySocialProfiles(x){
  }catch(e){x.socialLookupStatus='unavailable';x.socialLookupError=e.message}
  finally{x.socialLookupInProgress=false;render();if(selectedDraftLead===x){if(!recipientManuallyEdited)updateRecipient(x);updateSocialDestinations()}}
 }
-function key(x){const site=url(x.website);let host='';try{host=site?new URL(site).hostname.replace(/^www\./,'').toLowerCase():''}catch{}return host?'domain:'+host:'listing:'+(x.name+'|'+x.address).toLowerCase().replace(/\s+/g,' ').trim()}
+function key(x){
+ const source=String(x?.source||'');
+ const osm=source.match(/\b(node|way|relation)\/([1-9]\d{0,18})\b/i);
+ if(osm&&/\bopenstreetmap\b/i.test(source))return 'osm:'+osm[1].toLowerCase()+'/'+osm[2];
+ const site=url(x.website);let host='';
+ try{host=site?new URL(site).hostname.replace(/^www\./,'').toLowerCase():''}catch{}
+ return host?'domain:'+host:'listing:'+(x.name+'|'+x.address).toLowerCase().replace(/\s+/g,' ').trim();
+}
 const LEAD_ARCHIVE_KEY='leadflow-discovered-archive-v1';
 let archiveMode=false,leadArchive=[];
 try{leadArchive=JSON.parse(localStorage.getItem(LEAD_ARCHIVE_KEY)||'[]');if(!Array.isArray(leadArchive))leadArchive=[]}catch{leadArchive=[]}
@@ -598,7 +605,7 @@ async function showUnseenAcrossDevices(items){
  try{
   // Exact membership checks avoid truncating the shared library to a recent page.
   for(let offset=0;offset<items.length;offset+=100){
-   const batch=items.slice(offset,offset+100).map(item=>({name:item.name,website:item.website,address:item.address}));
+   const batch=items.slice(offset,offset+100).map(item=>({name:item.name,website:item.website,address:item.address,source:item.source||''}));
    const result=await libraryRequest('check-seen',{leads:batch});
    if(result.durable!==true||!Array.isArray(result.seenKeys))throw Error('Shared history is unavailable');
    for(const k of result.seenKeys)if(typeof k==='string'&&k.length<=1100)seenKeys.add(k);
