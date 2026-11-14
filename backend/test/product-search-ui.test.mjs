@@ -11,7 +11,7 @@ const note=vm.runInNewContext(html.slice(start,end)+'\nonlineCoverageNote',{});
 
 test('product search status accurately reports partial source inspection',()=>{
  const sample={searchCoverage:{eligibleCandidates:58,inspectedThisRequest:24,partial:true}};
- assert.match(note(sample),/24 of 58 eligible U\\.S\\. catalog candidates/);
+ assert.match(note(sample),/24 of 58 eligible U\.S\. catalog candidates/);
  assert.match(note(sample),/Repeat the product search/);
  assert.equal(note({searchCoverage:{eligibleCandidates:4,inspectedThisRequest:4,partial:false}}),'');
  assert.equal(note([]),'');
@@ -24,5 +24,5 @@ test('invalid or contradictory coverage metadata cannot create misleading UI cla
   {eligibleCandidates:30,inspectedThisRequest:'unknown',partial:true},
   {eligibleCandidates:30,inspectedThisRequest:0,partial:false}
  ])assert.equal(note({searchCoverage:coverage}),'');
- assert.match(html,/textContent\\+=onlineCoverageNote\\(candidates\\)/,'UI must actually display coverage after online search');
+ assert.match(html,/textContent\+=onlineCoverageNote\(candidates\)/,'UI must actually display coverage after online search');
 });
