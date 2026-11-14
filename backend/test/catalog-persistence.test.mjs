@@ -56,8 +56,8 @@ test('discovery refresh paths let the persistent store own catalog map writes',(
  // A map.set before store.save overwrites the previous feedback before it can be
  // inherited, even though a direct store.save behaves correctly in unit tests.
  const server=readFileSync(new URL('../server.js',import.meta.url),'utf8');
- assert.doesNotMatch(server,/onlineCatalog\\.set\\(domain\\s*,\\s*(?:record|row)\\)/,
+ assert.doesNotMatch(server,/onlineCatalog\.set\(domain\s*,\s*(?:record|row)\)/,
   'Do not mutate the shared catalog map before or after a durable save');
- assert.match(server,/await catalogStore\\.save\\(record\\)/,
+ assert.match(server,/await catalogStore\.save\(record\)/,
   'Metadata refresh must persist through the feedback-preserving catalog store');
 });
