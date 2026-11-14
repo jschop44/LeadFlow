@@ -471,6 +471,12 @@ const productMerchantSources={
   {name:'Mito Red Light',website:'https://mitoredlight.com/',officePage:'https://mitoredlight.com/pages/contact-us',
    officePhrase:'Scottsdale AZ 85258',officeLocation:'Scottsdale, AZ, USA',
    productPage:'https://mitoredlight.com/products/mitopro-x-series'},
+  // Published US headquarters and a first-party red-light panel.
+  // Each source is inspected live before any merchant enters the catalog.
+  {name:'Sun Home Saunas',website:'https://sunhomesaunas.com/',
+   officePage:'https://sunhomesaunas.com/pages/about',
+   officePhrase:'Headquarters San Diego California',officeLocation:'San Diego, CA, USA',
+   productPage:'https://sunhomesaunas.com/products/300w-pro-red-light'},
   {name:'iRESTORE',website:'https://www.irestorelaser.com/'}
  ],
  'Sauna blankets':[
@@ -479,7 +485,11 @@ const productMerchantSources={
    productPage:'https://hoogahealth.com/products/infrared-sauna-blanket'},
   {name:'HigherDOSE',website:'https://higherdose.com/',officePage:'https://higherdose.com/pages/terms-conditions',
    officePhrase:'operated by HigherDOSE from its offices in New York',officeLocation:'New York, NY, USA',
-   productPage:'https://higherdose.com/collections/infrared-sauna-collection'}
+   productPage:'https://higherdose.com/collections/infrared-sauna-collection'},
+  {name:'Sun Home Saunas',website:'https://sunhomesaunas.com/',
+   officePage:'https://sunhomesaunas.com/pages/about',
+   officePhrase:'Headquarters San Diego California',officeLocation:'San Diego, CA, USA',
+   productPage:'https://sunhomesaunas.com/products/best-infrared-sauna-blanket-2025'}
  ],
  'Skin-care devices':[{name:'CurrentBody',website:'https://www.currentbody.com/'}]
 };
