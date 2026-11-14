@@ -2,6 +2,7 @@ import {createRegionalSearch,matchesIndexedNiche,resolveUSState} from './regiona
 import {expandNearbyCityResults} from './local-nearby-results.js';
 import {supportsCatalogNiche} from './catalog-niche-evidence.js';
 import {productTextMatches,supportedUSCatalogRecord,observedCommerceControl} from './product-evidence.js';
+import {productInspectionWindow} from './product-candidate-window.js';
 import {firstPartyMerchantLocation,merchantProductPage,sameMerchantHost,merchantSourceMaxBytes} from './merchant-location-evidence.js';
 import {createSearchRunner} from './search-execution.js';
 import {nominatimBusinessLead} from './nominatim-evidence.js';
@@ -576,6 +577,7 @@ async function lookupMerchantDomain(raw){
   catalogSize:onlineCatalog.size,message:info.classification==='Online'?'Online storefront evidence detected.':'Website located, but ecommerce evidence could not be verified; the business is shown for review.'};
 }
 const productEvidenceCache=new Map();
+const productCandidateCursors=new Map();
 async function searchProductKeyword(raw){
  const rawInput=String(raw||'').trim();
  if(/^(?:https?:\/\/)?(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)+\/?$/i.test(rawInput))return lookupMerchantDomain(rawInput);
@@ -583,11 +585,12 @@ async function searchProductKeyword(raw){
  if(query.length<3)throw Error('Enter at least three characters for a product search');
  const group=productGroup(query);
  if(group&&productMerchantSources[group.niche])await verifyProductMerchants(group.niche);
- const tokens=query.split(' ').filter(w=>w.length>2);
  const records=[...onlineCatalog.values()].filter(r=>['Online','Local + Online'].includes(r.classification));
  const matches=[];
- // Old niche assignments are candidate hints, not evidence of a product or US location.
- const candidates=records.filter(supportedUSCatalogRecord).sort((a,b)=>Number(Boolean(group&&b.niches?.includes(group.niche)))-Number(Boolean(group&&a.niches?.includes(group.niche)))).slice(0,24);
+ // Category labels only prioritize inspection. A visible product phrase on an
+ // official HTTPS site remains mandatory before any result is returned.
+ const eligible=records.filter(supportedUSCatalogRecord);
+ const candidates=productInspectionWindow(eligible,group?.niche,query,productCandidateCursors,24);
  let nextProduct=0;await Promise.all(Array.from({length:6},async()=>{while(nextProduct<candidates.length){const r=candidates[nextProduct++];
   try{const sourceUrl=merchantProductPage(r,group?.niche),key=r.domain+'|'+query+'|'+sourceUrl;
    let evidence=productEvidenceCache.get(key);
@@ -598,10 +601,23 @@ async function searchProductKeyword(raw){
    if(evidence.matches)matches.push({...r,element:{...r.element,productEvidence:evidence}})
   }catch{}
  }}));
- const unique=[...new Map(matches.map(r=>[r.domain,r])).values()].slice(0,150);
+ // Previously confirmed matches remain available when the next request inspects
+ // another slice of the eligible catalog; stale or changed source URLs do not.
+ const recent=Date.now();
+ for(const r of eligible){
+  const sourceUrl=merchantProductPage(r,group?.niche);
+  const evidence=productEvidenceCache.get(r.domain+'|'+query+'|'+sourceUrl);
+  if(evidence?.matches===true&&recent-evidence.retrievedAt<=3600000)
+   matches.push({...r,element:{...r.element,productEvidence:evidence}});
+ }
+ const unique=[...new Map(matches.map(r=>[r.domain,r])).values()]
+  .sort((a,b)=>a.domain.localeCompare(b.domain)).slice(0,150);
+ const partial=eligible.length>candidates.length;
+ const message=unique.length?'Matching storefronts with published product wording and US business-source evidence.':'No qualifying matches in this bounded catalog inspection. Product labels and US shipping alone do not verify product availability or a US business location.';
  return {elements:unique.map(r=>({...r.element,sourceAgreement:[r.usEvidenceKind==='first_party_location_statement'?'Official merchant claims US office':'Public US business record','Inspected online storefront','Visible product keyword match']})),
   niche:query,source:'LeadFlow product keyword search',searchStatus:unique.length?'ok':'no_verified_matches',
-  catalogSize:onlineCatalog.size,message:unique.length?'Matching storefronts with published product wording and US business-source evidence.':'No qualifying matches in this bounded catalog inspection. Product labels and US shipping alone do not verify product availability or a US business location.'};
+  catalogSize:onlineCatalog.size,searchCoverage:{eligibleCandidates:eligible.length,inspectedThisRequest:candidates.length,partial},
+  message:message+(partial?' Search coverage is partial; repeating the search examines another bounded catalog window.':'')};
 }
 async function searchOnlineBusinesses(niche){
  if(!onlineNicheTerms[niche]&&!discoveryTerms[niche])throw Error('Unsupported niche');
