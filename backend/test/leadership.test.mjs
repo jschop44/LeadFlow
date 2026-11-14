@@ -54,3 +54,28 @@ test('company leadership extraction rejects an unrelated organization embedded i
  assert.equal(verified.length,1);
  assert.equal(verified[0].name,'Robin Sanchez');
 });
+
+
+test('recovers official leadership from same-host WebPage publisher and about schema',()=>{
+ const html='<script type="application/ld+json">'+JSON.stringify({
+  '@type':'WebPage',
+  publisher:{'@type':'Organization',url:'https://example.org/#organization',founder:{name:'Robin Sanchez'}},
+  about:[{'@type':'Organization','@id':'https://www.example.org/#about',ceo:{name:'Alex Morgan'}}]
+ })+'</script>';
+ const people=context.peopleFromStructuredData(html,source);
+ assert.ok(people.some(x=>x.name==='Robin Sanchez'&&x.role==='Founder'&&x.source===source));
+ assert.ok(people.some(x=>x.name==='Alex Morgan'&&x.role==='CEO'&&x.source===source));
+});
+
+test('ignores unrelated, unclaimed or malformed WebPage publishers as business leadership',()=>{
+ const html='<script type="application/ld+json">'+JSON.stringify({
+  '@type':'WebPage',
+  publisher:[
+   {'@type':'Organization',url:'https://external-publisher.com/',founder:{name:'Outsider One'}},
+   {'@type':'Organization',founder:{name:'Unknown Origin'}},
+   {'@type':'Organization',url:'https://example.org.evil.test/',ceo:{name:'Impostor Person'}}
+  ],
+  about:{'@type':'Organization',url:'https://another-business.com/',founder:{name:'Other Person'}}
+ })+'</script>';
+ assert.equal(context.peopleFromStructuredData(html,source).length,0);
+});
