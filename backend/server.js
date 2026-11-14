@@ -101,6 +101,20 @@ function peopleFromStructuredData(html,source){
  }
  for(const role of ['founder','employee','member']){const v=value[role];if(v)(Array.isArray(v)?v:[v]).forEach(p=>add(p,role==='founder'?'Founder':'Team member'))}if(value.ceo)(Array.isArray(value.ceo)?value.ceo:[value.ceo]).forEach(p=>add(p,'CEO'));if(value.founder)(Array.isArray(value.founder)?value.founder:[value.founder]).forEach(p=>add(p,'Founder'));if(value.founders)(Array.isArray(value.founders)?value.founders:[value.founders]).forEach(p=>add(p,'Founder'))}
  if(value['@graph'])walk(value['@graph'],depth+1);if(value.mainEntity)walk(value.mainEntity,depth+1);
+ // First-party companies sometimes embed a full Organization under WebPage
+ // publisher/about rather than publishing a top-level Organization.
+ // Follow only same-domain claimed nodes; an agency or external publisher
+ // must never be mistaken for the business's owner.
+ for(const field of ['publisher','about']){
+  const nested=value[field];
+  for(const item of (Array.isArray(nested)?nested:[nested])){
+   if(!item||typeof item!=='object')continue;
+   const claimed=String(item.url||item['@id']||'');
+   if(!/^https?:\/\//i.test(claimed))continue;
+   try{if(new URL(claimed).hostname.toLowerCase().replace(/^www\./,'')!==new URL(source).hostname.toLowerCase().replace(/^www\./,''))continue}catch{continue}
+   walk(item,depth+1);
+  }
+ }
  };
  for(const m of html.matchAll(/<script\b[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){try{walk(JSON.parse(m[1]))}catch{}}
  return found.slice(0,15)
