@@ -1,4 +1,5 @@
 import {createHash} from 'node:crypto';
+import {leadKey} from './lead-key.js';
 let pool=null;
 export async function initLeadLibrary(){
  if(!process.env.DATABASE_URL)return false;
@@ -14,7 +15,6 @@ export async function initLeadLibrary(){
 export const leadLibraryReady=()=>!!pool;
 function scopeFor(token){return createHash('sha256').update('leadflow-library-v1:'+token).digest('hex')}
 function safeLead(x){const name=String(x?.name||'').slice(0,240),website=String(x?.website||'').slice(0,1000);if(!name)throw Error('Business name required');return {name,website,address:String(x.address||'').slice(0,500),niche:String(x.niche||'').slice(0,150),phone:String(x.phone||'').slice(0,100),email:String(x.email||'').slice(0,250),owner:String(x.owner||'').slice(0,250),socials:Array.isArray(x.socials)?x.socials.slice(0,12):[],classification:String(x.classification||'').slice(0,80),platform:String(x.platform||'').slice(0,100),source:String(x.source||'').slice(0,500)}}
-function leadKey(x){let domain='';try{const website=String(x.website||'').trim();domain=new URL(/^https?:\/\//i.test(website)?website:'https://'+website).hostname.toLowerCase().replace(/^www\./,'')}catch{}return domain?'domain:'+domain:'listing:'+(x.name+'|'+x.address).toLowerCase().replace(/\s+/g,' ').trim()}
 export async function libraryAction(token,action,data){
  if(!pool)throw Error('Persistent lead library is not configured');
  const scope=scopeFor(token);
