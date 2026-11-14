@@ -8,7 +8,7 @@ import {leadKey} from '../lead-key.js';
 const html=readFileSync(new URL('../../index.html',import.meta.url),'utf8');
 const begin=html.indexOf('function key(x){'),end=html.indexOf('\nconst LEAD_ARCHIVE_KEY',begin);
 assert.ok(begin>=0&&end>begin,'Browser identity function must be present');
-const browser=vm.createContext({url:website=>/^https?:\/\//i.test(website||'')?website:''});
+const browser=vm.createContext({URL,url:website=>/^https?:\/\//i.test(website||'')?website:''});
 vm.runInContext(html.slice(begin,end),browser);
 const both=x=>{
  const api=leadKey(x),ui=browser.key(x);
