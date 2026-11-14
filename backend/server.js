@@ -492,6 +492,13 @@ const productMerchantSources={
    officePhrase:'1301 W Park Ave Suite F Ocean NJ 07712',
    officeLocation:'Ocean, NJ, USA',
    productPage:'https://awarlt.com/products/fx500-red-light-therapy-panel'},
+  // First-party Los Angeles business address and in-stock official panel.
+  // The app must recheck the visible address, product and commerce evidence.
+  {name:'Lumavi Wellness',website:'https://lumaviwellness.com/',
+   officePage:'https://lumaviwellness.com/pages/about-us',
+   officePhrase:'1022 Hi Point St Los Angeles CA 90035',
+   officeLocation:'Los Angeles, CA, USA',
+   productPage:'https://lumaviwellness.com/products/red-light-therapy-panel-4-wavelengths-full-body-infrared-light-therapy-300-elite-grade-dual-chip-leds-fsa-hsa-red-light-device-at-home-ideal-for-body-face-500w-modular-design'},
   {name:'iRESTORE',website:'https://www.irestorelaser.com/'}
  ],
  'Sauna blankets':[
@@ -514,7 +521,14 @@ const productMerchantSources={
    officePage:'https://awarlt.com/pages/contact-us',
    officePhrase:'1301 W Park Ave Suite F Ocean NJ 07712',
    officeLocation:'Ocean, NJ, USA',
-   productPage:'https://awarlt.com/products/hl500-infrared-sauna-blanket'}
+   productPage:'https://awarlt.com/products/hl500-infrared-sauna-blanket'},
+  // Official FAQ states the company operates from Florida; warehouse location
+  // alone would not qualify as U.S. business evidence.
+  {name:'Heat Healer',website:'https://heathealer.com/',
+   officePage:'https://heathealer.com/pages/faq',
+   officePhrase:'We operate from our offices in Florida USA',
+   officeLocation:'Florida, USA',
+   productPage:'https://heathealer.com/products/infrared-sauna-blanket'}
  ],
  'Skin-care devices':[{name:'CurrentBody',website:'https://www.currentbody.com/'}]
 };
