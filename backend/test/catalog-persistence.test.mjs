@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtemp,rm,readFile,writeFile} from 'node:fs/promises';
+import {readFileSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createCatalogStore} from '../catalog-store.js';
@@ -48,4 +49,15 @@ test('catalog snapshot is restored after multiple sequential saves',async()=>{
   await reopened.init();
   assert.deepEqual([...reopened.records.keys()].sort(),['first.example','second.example','third.example']);
  }finally{await rm(dir,{recursive:true,force:true})}
+});
+
+
+test('discovery refresh paths let the persistent store own catalog map writes',()=>{
+ // A map.set before store.save overwrites the previous feedback before it can be
+ // inherited, even though a direct store.save behaves correctly in unit tests.
+ const server=readFileSync(new URL('../server.js',import.meta.url),'utf8');
+ assert.doesNotMatch(server,/onlineCatalog\\.set\\(domain\\s*,\\s*(?:record|row)\\)/,
+  'Do not mutate the shared catalog map before or after a durable save');
+ assert.match(server,/await catalogStore\\.save\\(record\\)/,
+  'Metadata refresh must persist through the feedback-preserving catalog store');
 });
