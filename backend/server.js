@@ -477,6 +477,14 @@ const productMerchantSources={
    officePage:'https://sunhomesaunas.com/pages/about',
    officePhrase:'Headquarters San Diego California',officeLocation:'San Diego, CA, USA',
    productPage:'https://sunhomesaunas.com/products/300w-pro-red-light'},
+  // Lifepro publishes its actual New Jersey business correspondence address.
+  // This seed cannot appear as a lead until official sources are re-fetched
+  // and the specific product plus online commerce are verified.
+  {name:'Lifepro',website:'https://lifeprofitness.com/',
+   officePage:'https://lifeprofitness.com/pages/contact-us',
+   officePhrase:'Lifepro Fitness LLC 465 Industrial Way W Eatontown NJ 07724',
+   officeLocation:'Eatontown, NJ, USA',
+   productPage:'https://lifeprofitness.com/products/bioheal-plus-red-light-therapy-panel'},
   {name:'iRESTORE',website:'https://www.irestorelaser.com/'}
  ],
  'Sauna blankets':[
@@ -489,7 +497,12 @@ const productMerchantSources={
   {name:'Sun Home Saunas',website:'https://sunhomesaunas.com/',
    officePage:'https://sunhomesaunas.com/pages/about',
    officePhrase:'Headquarters San Diego California',officeLocation:'San Diego, CA, USA',
-   productPage:'https://sunhomesaunas.com/products/best-infrared-sauna-blanket-2025'}
+   productPage:'https://sunhomesaunas.com/products/best-infrared-sauna-blanket-2025'},
+  {name:'Lifepro',website:'https://lifeprofitness.com/',
+   officePage:'https://lifeprofitness.com/pages/contact-us',
+   officePhrase:'Lifepro Fitness LLC 465 Industrial Way W Eatontown NJ 07724',
+   officeLocation:'Eatontown, NJ, USA',
+   productPage:'https://lifeprofitness.com/products/rejuvawrap'}
  ],
  'Skin-care devices':[{name:'CurrentBody',website:'https://www.currentbody.com/'}]
 };

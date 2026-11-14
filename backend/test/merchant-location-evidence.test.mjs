@@ -102,3 +102,34 @@ test('Sun Home candidate requires observed US headquarters, official product pag
  assert.equal(observedCommerceControl('<button type="submit">Add to Cart</button>'),'Add to Cart');
  assert.equal(merchantProductPage({...record,productEvidencePages:{'Sauna blankets':'https://external.example/product'}},'Sauna blankets'),sunHome.website);
 });
+
+
+test('Lifepro candidate requires its exact official U.S. office statement and distinct product evidence',()=>{
+ const merchant={
+  website:'https://lifeprofitness.com/',
+  officePage:'https://lifeprofitness.com/pages/contact-us',
+  officePhrase:'Lifepro Fitness LLC 465 Industrial Way W Eatontown NJ 07724',
+  officeLocation:'Eatontown, NJ, USA'
+ };
+ const official='<main><h2>Company Contact</h2>'+
+  '<p>Lifepro Fitness LLC 465 Industrial Way W Eatontown, NJ 07724</p></main>';
+ assert.equal(firstPartyMerchantLocation(merchant,'<p>We ship to U.S. homes</p>'),null);
+ assert.equal(firstPartyMerchantLocation(merchant,
+  '<template><p>Lifepro Fitness LLC 465 Industrial Way W Eatontown NJ 07724</p></template>'),null);
+ const evidence=firstPartyMerchantLocation(merchant,official);
+ assert.ok(evidence);
+ assert.equal(evidence.usEvidenceSource,merchant.officePage);
+ assert.equal(supportedUSCatalogRecord({...evidence,element:{tags:{website:merchant.website}}}),true);
+ const red='https://lifeprofitness.com/products/bioheal-plus-red-light-therapy-panel';
+ const sauna='https://lifeprofitness.com/products/rejuvawrap';
+ const row={element:{tags:{website:merchant.website}},productEvidencePages:{
+  'Red light therapy devices':red,'Sauna blankets':sauna
+ }};
+ assert.equal(merchantProductPage(row,'Red light therapy devices'),red);
+ assert.equal(merchantProductPage(row,'Sauna blankets'),sauna);
+ assert.equal(productTextMatches('<h1>BioHeal Plus Red Light Therapy Panel</h1>','red light therapy'),true);
+ assert.equal(productTextMatches('<h1>RejuvaWrap Infrared Sauna Blanket</h1>','sauna blankets'),true);
+ assert.equal(merchantSourceMaxBytes([{...merchant,productPage:red}],red),2_000_000);
+ assert.equal(observedCommerceControl('<button>Add to cart</button>'),'Add to Cart');
+ assert.equal(observedCommerceControl('<button disabled>Add to cart</button>'),undefined);
+});
