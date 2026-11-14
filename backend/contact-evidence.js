@@ -2,6 +2,7 @@
  * Evidence-backed contact research on a business's own, robots-permitted pages.
  * No guessing, synthetic addresses, private contact data or social-platform scraping.
  */
+import {visiblePublicMarkup} from './product-evidence.js';
 const SOCIAL_HOSTS=['linkedin.com','facebook.com','instagram.com','x.com','twitter.com','youtube.com','tiktok.com'];
 const ROLE_KEYS={founder:'Founder',founders:'Founder',ceo:'CEO',owner:'Owner',employee:'Team member',member:'Team member'};
 const entityText=value=>String(value||'').replace(/&#(?:x([0-9a-f]+)|([0-9]+));/gi,(_,hex,decimal)=>{const num=parseInt(hex||decimal,hex?16:10);return num>0&&num<65536?String.fromCharCode(num):''}).replace(/&(?:commat|#64);/gi,'@').replace(/&(?:period|dot);/gi,'.').replace(/&amp;/gi,'&').replace(/&nbsp;/gi,' ');
@@ -36,7 +37,7 @@ const isOrgType=value=>{
  return types.some(t=>/^(?:https?:\/\/schema\.org\/)?(?:organization|corporation|localbusiness|restaurant|cafeorcoffeeshop|bakery|dentist|physician|store|financialservice|professionalservice|legalservice|accountingservice|realestateagent|travelagency|medicalclinic|healthandbeautybusiness|[a-z]+(?:business|store|restaurant|agency|office|service|practice|firm|clinic|dentist|attorney))$/i.test(String(t||'')));
 };
 const emailRe=/[a-z0-9._%+\-]+@[a-z0-9.-]+\.[a-z]{2,20}/gi;
-const urls=html=>[...html.matchAll(/\bhref\s*=\s*["']([^"'<>\s]{1,1500})["']/gi)].map(x=>entityText(x[1]));
+const urls=html=>[...visiblePublicMarkup(html).matchAll(/\bhref\s*=\s*["']([^"'<>\s]{1,1500})["']/gi)].map(x=>entityText(x[1]));
 function schemaObjects(html){
  const nodes=[];
  for(const match of html.matchAll(/<script\b[^>]*\btype\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)){
@@ -60,7 +61,7 @@ function acceptedOrganization(org,root){
  return true;
 }
 function visibleText(html){
- return entityText(html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi,' ').replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ')).replace(/\s+/g,' ').slice(0,350000);
+ return entityText(visiblePublicMarkup(html).replace(/<[^>]+>/g,' ')).replace(/\s+/g,' ').slice(0,350000);
 }
 const nameOf=value=>{
  const name=typeof value==='string'?value:value?.name;

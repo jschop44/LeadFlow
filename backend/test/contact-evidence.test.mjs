@@ -52,3 +52,50 @@ test('merge refuses cross-domain evidence injection',()=>{
 test('nested relative contact links resolve against the retrieved document URL',()=>{
  assert.deepEqual(discoverContactPages('<a href="team">Team</a><a href="../contact">Contact</a><a href="https://another-business.com/team">Other</a>',website+'about/',4),['/contact','/about/team']);
 });
+
+
+test('hidden mailto links, business emails, phone numbers and social URLs are not contact evidence',()=>{
+ const hidden= [
+  '<template><a href="mailto:private@ridgeworks.com">Email private</a></template>',
+  '<div hidden><p>invisible@ridgeworks.com</p><a href="tel:+1-202-555-0123">Call</a></div>',
+  '<section inert><a href="https://linkedin.com/company/private-team">LinkedIn</a></section>',
+  '<div aria-hidden="true"><a href="mailto:concealed@ridgeworks.com">Concealed</a></div>',
+  '<section style="display : none"><p>no-show@ridgeworks.com</p></section>',
+  '<aside style="visibility:hidden!important"><a href="tel:+1-202-555-0124">Phone</a></aside>',
+  '<script>const owner="script@ridgeworks.com";</script>',
+  '<noscript><a href="mailto:noscript@ridgeworks.com">Mail</a></noscript>',
+  '<!-- <a href="mailto:comment@ridgeworks.com">Comment</a> -->',
+ ].join('');
+ const visible='<main><a href="mailto:info@ridgeworks.com">Email the office</a>'+
+  '<a href="https://linkedin.com/company/ridgeworks">Our LinkedIn</a></main>';
+ const result=extractPublicContacts(hidden+visible,website);
+ assert.deepEqual(result.emails,['info@ridgeworks.com']);
+ assert.deepEqual(result.phones,[]);
+ assert.equal(result.socials.length,1);
+ assert.ok(result.socials[0].includes('ridgeworks'));
+ assert.ok(result.emailEvidence.every(row=>row.method==='mailto_link'));
+});
+
+test('hidden discovery links cannot trigger unseen leadership or contact page research',()=>{
+ const html='<nav><a href="/contact">Contact</a></nav>'+
+  '<template><a href="/leadership">Leaders</a></template>'+
+  '<section hidden><a href="/owner">Owner</a></section>'+
+  '<div style="display:none"><a href="/team">Team</a></div>'+
+  '<div aria-hidden="true"><a href="/about">About</a></div>'+
+  '<a href="/staff">Published Staff</a>';
+ assert.deepEqual(discoverContactPages(html,website,8),['/contact','/staff']);
+});
+
+test('organization structured data remains usable even though scripts are not rendered text',()=>{
+ const schema=JSON.stringify({
+  '@context':'https://schema.org','@type':'Organization',url:website,
+  founder:{'@type':'Person',name:'Taylor Rivers',email:'taylor@ridgeworks.com'},
+  email:'support@ridgeworks.com'
+ });
+ const html='<script type="application/ld+json">'+schema+'</script>'+
+  '<main><h1>Ridgeworks Team</h1></main>';
+ const result=extractPublicContacts(html,website);
+ assert.ok(result.emails.includes('taylor@ridgeworks.com'));
+ assert.ok(result.emails.includes('support@ridgeworks.com'));
+ assert.equal(result.namedContacts[0].name,'Taylor Rivers');
+});
