@@ -40,7 +40,7 @@ export function expandNearbyCityResults({area,niche,exact,records,matchesNiche,m
   .map(coordinates).filter(Boolean);
  if(anchors.length<5)return exact;
  const center={lat:median(anchors.map(point=>point.lat)),lon:median(anchors.map(point=>point.lon))};
- const original=exact.map(row=>({...row,locationMatch:'city'}));
+ const original=exact.map(row=>({...row,locationMatch:normalizeCity(row?.tags?.['addr:city'])===city?'city':'indexed_area'}));
  const ids=new Set(original.map(identity)),domains=new Set(original.map(domain).filter(Boolean));
  const nearby=all.filter(row=>isMaryland(row)&&matchesNiche(place(row),niche,row.niches||[niche]))
   .map(row=>({element:place(row),coordinate:coordinates(row)}))
