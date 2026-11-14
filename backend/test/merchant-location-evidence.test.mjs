@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {firstPartyMerchantLocation,merchantProductPage,sameMerchantHost,merchantSourceMaxBytes} from '../merchant-location-evidence.js';
-import {supportedUSCatalogRecord,productTextMatches} from '../product-evidence.js';
+import {supportedUSCatalogRecord,productTextMatches,observedCommerceControl} from '../product-evidence.js';
 
 const hooga={name:'Hooga',website:'https://hoogahealth.com/',
  officePage:'https://hoogahealth.com/pages/about',officePhrase:'New Berlin WI USA',
@@ -71,4 +71,34 @@ test('large merchant HTML budget only applies to exact enumerated first-party so
  assert.equal(merchantSourceMaxBytes(curated,'http://hoogahealth.com/pages/about'),350_000);
  assert.equal(merchantSourceMaxBytes(curated,'https://some-merchant.example/products'),350_000);
  assert.equal(merchantSourceMaxBytes(undefined,hooga.officePage),350_000);
+});
+
+
+test('Sun Home candidate requires observed US headquarters, official product pages and live checkout',()=>{
+ // Fixtures mirror public claims; the server still fetches and verifies the
+ // current official pages rather than trusting this seed as a business lead.
+ const sunHome={
+  website:'https://sunhomesaunas.com/',
+  officePage:'https://sunhomesaunas.com/pages/about',
+  officePhrase:'Headquarters San Diego California',
+  officeLocation:'San Diego, CA, USA'
+ };
+ assert.equal(firstPartyMerchantLocation(sunHome,'<h2>Our offices around the world</h2>'),null);
+ const official='<section><h2>Headquarters</h2><p>San Diego, California</p></section>';
+ const location=firstPartyMerchantLocation(sunHome,official);
+ assert.ok(location);
+ assert.equal(location.usEvidenceSource,sunHome.officePage);
+ assert.equal(supportedUSCatalogRecord({...location,element:{tags:{website:sunHome.website}}}),true);
+ const red='https://sunhomesaunas.com/products/300w-pro-red-light';
+ const blanket='https://sunhomesaunas.com/products/best-infrared-sauna-blanket-2025';
+ const record={
+  element:{tags:{website:sunHome.website}},
+  productEvidencePages:{'Red light therapy devices':red,'Sauna blankets':blanket}
+ };
+ assert.equal(merchantProductPage(record,'Red light therapy devices'),red);
+ assert.equal(merchantProductPage(record,'Sauna blankets'),blanket);
+ assert.equal(productTextMatches('<h2>Medical-Grade Desktop Red Light Therapy Panel</h2>','red light therapy'),true);
+ assert.equal(productTextMatches('<h2>Infrared Sauna Blanket</h2>','sauna blankets'),true);
+ assert.equal(observedCommerceControl('<button type="submit">Add to Cart</button>'),'Add to Cart');
+ assert.equal(merchantProductPage({...record,productEvidencePages:{'Sauna blankets':'https://external.example/product'}},'Sauna blankets'),sunHome.website);
 });
