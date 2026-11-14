@@ -454,7 +454,8 @@ async function refreshOnlineCatalog(){
    const physical=Boolean(t['addr:street']||t['addr:city']||el.lat||el.lon||el.center);
    const classification=result.classification==='Online'?(physical?'Local + Online':'Online'):(physical?'Local':'Unverified');
    const record={domain,niches:[...new Set([...(previous?.niches||[]),...(row.niches||[])])],checkedAt:Date.now(),classification,platform:result.platform,evidence:result.classificationEvidence,usEvidence:'US mapped business record',element:{...el,tags:{...t,website},classification,platform:result.platform,classificationEvidence:result.classificationEvidence,usEvidence:'US mapped business record'}};
-   onlineCatalog.set(domain,record);await catalogStore.save(record);
+   // Saving through the store must see the prior row and its user feedback.
+   await catalogStore.save(record);
   }
   // A single bounded provider request per refresh avoids bursts and respects rate limits.
   await discoverNationwideCandidates();
@@ -530,7 +531,6 @@ async function verifyProductMerchants(niche){
     classification:'Online',platform:inspected.platform,evidence:inspected.classificationEvidence,
     productEvidencePage,productEvidencePages:{...(previous?.productEvidencePages||{}),...(productEvidencePage?{[niche]:productEvidencePage}:{})},...location,element};
    await catalogStore.save(row);
-   onlineCatalog.set(domain,row);
    console.log('Merchant qualification',JSON.stringify({domain,stage:'catalog_evidence_persisted',locationKind:location.usEvidenceKind}));
   }catch(error){
    const reason=String(error?.message||'');
@@ -569,7 +569,8 @@ async function lookupMerchantDomain(raw){
  if(info.classification==='Online'){
   const record={domain,niches:['Direct website lookup'],checkedAt:Date.now(),classification:'Online',platform:info.platform,
    evidence:info.classificationEvidence,usEvidence:element.usEvidence,element};
-  onlineCatalog.set(domain,record);await catalogStore.save(record);
+  // Do not publish a replacement map entry before the store merges feedback.
+  await catalogStore.save(record);
  }
  return {elements:[element],niche:domain,source:'Direct website lookup',searchStatus:info.classification==='Online'?'ok':'unverified',
   catalogSize:onlineCatalog.size,message:info.classification==='Online'?'Online storefront evidence detected.':'Website located, but ecommerce evidence could not be verified; the business is shown for review.'};
