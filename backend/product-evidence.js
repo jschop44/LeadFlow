@@ -6,7 +6,7 @@ function normalizeProductWords(value){
  * or checkout evidence. This is bounded static-HTML inspection (not a claim
  * that arbitrary external CSS or JS-rendered visibility has been measured).
  */
-function visiblePublicMarkup(input){
+export function visiblePublicMarkup(input){
  const html=String(input||'').slice(0,2_000_000);
  const ignored=new Set(['script','style','noscript','template','svg','iframe']);
  const voids=new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
