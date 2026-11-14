@@ -133,3 +133,35 @@ test('Lifepro candidate requires its exact official U.S. office statement and di
  assert.equal(observedCommerceControl('<button>Add to cart</button>'),'Add to Cart');
  assert.equal(observedCommerceControl('<button disabled>Add to cart</button>'),undefined);
 });
+
+
+test('American Wellness Authority source candidate needs observed New Jersey office and two official checkout-capable products',()=>{
+ const merchant={website:'https://awarlt.com/',
+  officePage:'https://awarlt.com/pages/contact-us',
+  officePhrase:'1301 W Park Ave Suite F Ocean NJ 07712',
+  officeLocation:'Ocean, NJ, USA'};
+ assert.equal(firstPartyMerchantLocation(merchant,'<p>Free U.S. shipping on all orders</p>'),null);
+ assert.equal(firstPartyMerchantLocation(merchant,
+  '<div hidden>1301 W Park Ave Suite F Ocean NJ 07712</div>'),null);
+ const source='<main><h2>Who We Are</h2><p>American Wellness Authority</p>'+
+  '<p>1301 W. Park Ave, Suite F<br>Ocean, NJ 07712</p></main>';
+ const evidence=firstPartyMerchantLocation(merchant,source);
+ assert.ok(evidence,'Visible and exact official U.S. company address must qualify as first-party location proof');
+ assert.equal(evidence.usEvidenceKind,'first_party_location_statement');
+ assert.equal(evidence.usEvidenceSource,merchant.officePage);
+ assert.ok(supportedUSCatalogRecord({...evidence,element:{tags:{website:merchant.website}}}));
+ const red='https://awarlt.com/products/fx500-red-light-therapy-panel';
+ const sauna='https://awarlt.com/products/hl500-infrared-sauna-blanket';
+ const record={element:{tags:{website:merchant.website}},productEvidencePages:{
+  'Red light therapy devices':red,'Sauna blankets':sauna
+ }};
+ assert.equal(merchantProductPage(record,'Red light therapy devices'),red);
+ assert.equal(merchantProductPage(record,'Sauna blankets'),sauna);
+ assert.equal(merchantProductPage(record,'Skin-care devices'),merchant.website);
+ assert.equal(productTextMatches('<h1>FX500 Red Light Therapy Panel</h1>','red light therapy'),true);
+ assert.equal(productTextMatches('<h1>HL500 Infrared Sauna Blanket</h1>','sauna blankets'),true);
+ assert.equal(observedCommerceControl('<button type="submit">+ Add to cart</button>'),'Add to Cart');
+ assert.equal(observedCommerceControl('<button disabled>+ Add to cart</button>'),undefined);
+ assert.equal(merchantSourceMaxBytes([{...merchant,productPage:red}],red),2_000_000);
+ assert.equal(sameMerchantHost(merchant.website,'https://awarlt.com.evil.example/fx500'),false);
+});
