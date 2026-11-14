@@ -30,8 +30,8 @@ function visiblePublicMarkup(input){
    const style=attrs.match(/\sstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
    const declaration=String(style?.[1]||style?.[2]||'').replace(/\s+/g,'').toLowerCase();
    const blocked=Boolean(stack.at(-1)?.hidden)||ignored.has(tag)||
-    /(?:^|\s)(?:hidden|inert)(?:\s|=|\/?>)/i.test(attrs)||
-    /\saria-hidden\s*=\s*(?:"true"|'true'|true)(?=\s|\/?>)/i.test(attrs)||
+    /(?:^|\s)(?:hidden|inert)(?:\s|=|\/?>|$)/i.test(attrs)||
+    /\saria-hidden\s*=\s*(?:"true"|'true'|true)(?=\s|\/?>|$)/i.test(attrs)||
     /(?:^|;)(?:display:none|visibility:hidden)(?:!important)?(?:;|$)/.test(declaration);
    if(!blocked)pieces.push(token);
    if(!voids.has(tag)&&!token.endsWith('/>'))stack.push({tag,hidden:blocked});
