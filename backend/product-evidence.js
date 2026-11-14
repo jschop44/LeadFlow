@@ -2,11 +2,52 @@
 function normalizeProductWords(value){
  return String(value||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim().split(/\s+/).map(word=>word==='blankets'?'blanket':word).join(' ');
 }
+/** Strip source markup hidden from visitors before claiming public product
+ * or checkout evidence. This is bounded static-HTML inspection (not a claim
+ * that arbitrary external CSS or JS-rendered visibility has been measured).
+ */
+function visiblePublicMarkup(input){
+ const html=String(input||'').slice(0,2_000_000);
+ const ignored=new Set(['script','style','noscript','template','svg','iframe']);
+ const voids=new Set(['area','base','br','col','embed','hr','img','input','link','meta','param','source','track','wbr']);
+ const stack=[];
+ const pieces=[];
+ const tokens=html.match(/<!--[\s\S]*?-->|<![^>]*>|<\/?[a-z][^>]*>|[^<]+/gi)||[];
+ for(const token of tokens){
+  const closing=/^<\/([a-z][a-z0-9:-]*)\b/i.exec(token);
+  if(closing){
+   const tag=closing[1].toLowerCase();
+   const index=stack.findLastIndex(item=>item.tag===tag);
+   if(index<0)continue;
+   const wasHidden=stack[index].hidden;
+   stack.length=index;
+   if(!wasHidden)pieces.push(token);
+   continue;
+  }
+  const opening=/^<([a-z][a-z0-9:-]*)\b/i.exec(token);
+  if(opening){
+   const tag=opening[1].toLowerCase(),attrs=token.slice(opening[0].length,-1);
+   const style=attrs.match(/\sstyle\s*=\s*(?:"([^"]*)"|'([^']*)')/i);
+   const declaration=String(style?.[1]||style?.[2]||'').replace(/\s+/g,'').toLowerCase();
+   const blocked=Boolean(stack.at(-1)?.hidden)||ignored.has(tag)||
+    /(?:^|\s)(?:hidden|inert)(?:\s|=|\/?>)/i.test(attrs)||
+    /\saria-hidden\s*=\s*(?:"true"|'true'|true)(?=\s|\/?>)/i.test(attrs)||
+    /(?:^|;)(?:display:none|visibility:hidden)(?:!important)?(?:;|$)/.test(declaration);
+   if(!blocked)pieces.push(token);
+   if(!voids.has(tag)&&!token.endsWith('/>'))stack.push({tag,hidden:blocked});
+   continue;
+  }
+  if(token[0]!=='<'&&!stack.at(-1)?.hidden)pieces.push(token);
+ }
+ return pieces.join('');
+}
 export function productTextMatches(html,query){
- const visible=String(html||'').replace(/<!--[\s\S]*?-->/g,' ').replace(/<(script|style|noscript)\b[^>]*>[\s\S]*?<\/\1>/gi,' ').replace(/<[^>]*>/g,' ').replace(/&nbsp;|&#160;/gi,' ');
+ const visible=visiblePublicMarkup(html).replace(/<[^>]*>/g,' ')
+  .replace(/&nbsp;|&#160;/gi,' ');
  const phrase=normalizeProductWords(query);
  return phrase.length>=3&&(' '+normalizeProductWords(visible)+' ').includes(' '+phrase+' ');
 }
+
 export function supportedUSCatalogRecord(record){
  const evidence=String(record?.usEvidence||'');
  if(/not (?:independently )?verified|shipping offered|unknown/i.test(evidence))return false;
@@ -25,9 +66,7 @@ export function supportedUSCatalogRecord(record){
  * or hidden/disabled controls is not evidence that checkout is available.
  */
 export function observedCommerceControl(html){
- const document=String(html||'').slice(0,2_000_000)
-  .replace(/<!--[\s\S]*?-->/g,' ')
-  .replace(/<(script|style|noscript|template)\b[^>]*>[\s\S]*?<\/\1>/gi,' ');
+ const document=visiblePublicMarkup(html);
  const hidden=attrs=>/(?:^|\s)(?:hidden|disabled)(?:\s|=|$)/i.test(attrs)||
   /\baria-hidden\s*=\s*["']?true/i.test(attrs)||
   /\bstyle\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(attrs);
