@@ -589,10 +589,20 @@ function key(x){
  try{host=site?new URL(site).hostname.replace(/^www\./,'').toLowerCase():''}catch{}
  return host?'domain:'+host:'listing:'+(x.name+'|'+x.address).toLowerCase().replace(/\s+/g,' ').trim();
 }
+/** Keep public contact evidence from an earlier discovery when fresh listings
+ * provide placeholders, without preventing real updated values or status flags. */
+function mergeArchiveLead(previous,incoming){
+ const merged={...(previous||{})};
+ for(const [field,value] of Object.entries(incoming||{})){
+  if(value===null||value===undefined||typeof value==='string'&&!value.trim()||Array.isArray(value)&&!value.length)continue;
+  merged[field]=value;
+ }
+ return merged;
+}
 const LEAD_ARCHIVE_KEY='leadflow-discovered-archive-v1';
 let archiveMode=false,leadArchive=[];
 try{leadArchive=JSON.parse(localStorage.getItem(LEAD_ARCHIVE_KEY)||'[]');if(!Array.isArray(leadArchive))leadArchive=[]}catch{leadArchive=[]}
-function archiveLeads(items){if(!items?.length)return;const map=new Map(leadArchive.map(x=>[key(x),x]));for(const x of items){if(x.name)map.set(key(x),{...map.get(key(x)),...x,archivedAt:Date.now()})}leadArchive=[...map.values()].sort((a,b)=>(b.archivedAt||0)-(a.archivedAt||0)).slice(0,1500);try{localStorage.setItem(LEAD_ARCHIVE_KEY,JSON.stringify(leadArchive))}catch{leadArchive=leadArchive.slice(0,300);try{localStorage.setItem(LEAD_ARCHIVE_KEY,JSON.stringify(leadArchive))}catch{}}$('history-count').textContent=leadArchive.length}
+function archiveLeads(items){if(!items?.length)return;const map=new Map(leadArchive.map(x=>[key(x),x]));for(const x of items){if(x.name)map.set(key(x),{...mergeArchiveLead(map.get(key(x)),x),archivedAt:Date.now()})}leadArchive=[...map.values()].sort((a,b)=>(b.archivedAt||0)-(a.archivedAt||0)).slice(0,1500);try{localStorage.setItem(LEAD_ARCHIVE_KEY,JSON.stringify(leadArchive))}catch{leadArchive=leadArchive.slice(0,300);try{localStorage.setItem(LEAD_ARCHIVE_KEY,JSON.stringify(leadArchive))}catch{}}$('history-count').textContent=leadArchive.length}
 const LIBRARY_API='https://leadflow-research-api.onrender.com/library';
 async function libraryRequest(action,payload={}){const token=$('api-token').value.trim();if(!token)throw Error('Enter your API access token to enable cross-device Neon synchronization');const response=await fetch(LIBRARY_API,{method:'POST',headers:{'content-type':'application/json','x-leadflow-token':token},body:JSON.stringify({action,...payload}),signal:AbortSignal.timeout(18000)});const data=await response.json().catch(()=>({}));if(!response.ok)throw Error(response.status===401?'API token not accepted; check your token':data.error||'Lead library unavailable (HTTP '+response.status+')');return data}
 async function syncLeadLibrary(items,updateSaved=false){if(!$('api-token').value.trim()||!items.length)return;try{for(let i=0;i<items.length;i+=75)await libraryRequest('upsert',{leads:items.slice(i,i+75).map(x=>({...x,seen:seenKeys.has(key(x)),saved:saved.has(key(x))})),updateSaved});$('library-sync').textContent='Neon synced'}catch(e){$('library-sync').textContent='Local only: '+e.message}}
