@@ -165,3 +165,55 @@ test('American Wellness Authority source candidate needs observed New Jersey off
  assert.equal(merchantSourceMaxBytes([{...merchant,productPage:red}],red),2_000_000);
  assert.equal(sameMerchantHost(merchant.website,'https://awarlt.com.evil.example/fx500'),false);
 });
+
+
+test('Lumavi and Heat Healer must prove a US office on their own visible source page',()=>{
+ const lumavi={website:'https://lumaviwellness.com/',
+  officePage:'https://lumaviwellness.com/pages/about-us',
+  officePhrase:'1022 Hi Point St Los Angeles CA 90035',
+  officeLocation:'Los Angeles, CA, USA'};
+ const heat={website:'https://heathealer.com/',
+  officePage:'https://heathealer.com/pages/faq',
+  officePhrase:'We operate from our offices in Florida USA',
+  officeLocation:'Florida, USA'};
+ const lumaviEvidence=firstPartyMerchantLocation(lumavi,
+  '<section><p>Business Address</p><p>1022 Hi Point St Los Angeles, CA 90035</p></section>');
+ assert.ok(lumaviEvidence);
+ assert.equal(lumaviEvidence.usEvidenceSource,lumavi.officePage);
+ assert.equal(supportedUSCatalogRecord({...lumaviEvidence,element:{tags:{website:lumavi.website}}}),true);
+ const heatEvidence=firstPartyMerchantLocation(heat,
+  '<main><h2>Where is your company located?</h2>'+
+  '<p>We operate from our offices in Florida, USA and ship from our Global Warehouse in Oregon.</p></main>');
+ assert.ok(heatEvidence);
+ assert.equal(heatEvidence.usEvidenceSource,heat.officePage);
+ assert.equal(supportedUSCatalogRecord({...heatEvidence,element:{tags:{website:heat.website}}}),true);
+ for(const [merchant,html] of [
+  [lumavi,'<p>Free U.S. shipping within the Continental U.S.</p>'],
+  [heat,'<p>We ship from our global warehouse in Oregon.</p>']
+ ])assert.equal(firstPartyMerchantLocation(merchant,html),null,
+  'Shipping claims or warehouse locations cannot establish a US-owned office');
+ assert.equal(firstPartyMerchantLocation(heat,
+  '<div hidden>We operate from our offices in Florida, USA</div>'),null);
+});
+
+test('new red-light and sauna candidates have distinct official HTTPS product pages',()=>{
+ const lumavi='https://lumaviwellness.com/';
+ const red='https://lumaviwellness.com/products/red-light-therapy-panel-4-wavelengths-full-body-infrared-light-therapy-300-elite-grade-dual-chip-leds-fsa-hsa-red-light-device-at-home-ideal-for-body-face-500w-modular-design';
+ const heat='https://heathealer.com/';
+ const sauna='https://heathealer.com/products/infrared-sauna-blanket';
+ const redRecord={element:{tags:{website:lumavi}},productEvidencePages:{'Red light therapy devices':red}};
+ const heatRecord={element:{tags:{website:heat}},productEvidencePages:{'Sauna blankets':sauna}};
+ assert.equal(merchantProductPage(redRecord,'Red light therapy devices'),red);
+ assert.equal(merchantProductPage(heatRecord,'Sauna blankets'),sauna);
+ assert.equal(merchantProductPage(redRecord,'Sauna blankets'),lumavi);
+ assert.equal(merchantProductPage(heatRecord,'Red light therapy devices'),heat);
+ assert.equal(productTextMatches('<h1>Red Light Therapy Panel</h1>','red light therapy'),true);
+ assert.equal(productTextMatches('<h1>Infrared Sauna Blanket</h1>','sauna blankets'),true);
+ assert.equal(observedCommerceControl('<button type="submit">Add to Cart</button>'),'Add to Cart');
+ assert.equal(observedCommerceControl('<button disabled>Add to Cart</button>'),undefined);
+ assert.equal(merchantSourceMaxBytes([{website:lumavi,officePage:'https://lumaviwellness.com/pages/about-us',
+  productPage:red}],red),2_000_000);
+ assert.equal(merchantSourceMaxBytes([{website:heat,officePage:'https://heathealer.com/pages/faq',
+  productPage:sauna}],sauna),2_000_000);
+ assert.equal(sameMerchantHost(lumavi,'https://lumaviwellness.com.evil.example/products/red-light'),false);
+});
