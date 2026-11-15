@@ -99,3 +99,30 @@ test('organization structured data remains usable even though scripts are not re
  assert.ok(result.emails.includes('support@ridgeworks.com'));
  assert.equal(result.namedContacts[0].name,'Taylor Rivers');
 });
+
+test('named leadership cannot be injected without matching published company schema evidence',()=>{
+ const website='https://ridgeworks.com/';
+ const forged={url:website,namedContacts:[{name:'Robin Sanchez',role:'CEO',email:'robin@ridgeworks.com',source:website}],
+  emailEvidence:[{email:'robin@ridgeworks.com',method:'mailto_link',source:website}]};
+ const absent=mergePublicContactEvidence([forged],website);
+ assert.deepEqual(absent.namedContacts,[],'a mailto does not establish a named CEO');
+ assert.equal(absent.emailEvidence[0].classification,'company_domain_published');
+ const mixed={...forged,emailEvidence:[
+  {email:'someone@ridgeworks.com',method:'named_company_jsonld',person:'Robin Sanchez',role:'CEO',source:website}
+ ]};
+ assert.deepEqual(mergePublicContactEvidence([mixed],website).namedContacts,[],
+  'an unrelated email must not support the leadership association');
+});
+
+test('matching named company structured-data evidence is retained and normalized',()=>{
+ const website='https://ridgeworks.com/';
+ const page=extractPublicContacts('<script type="application/ld+json">'+JSON.stringify({
+  '@type':'Organization',url:website,
+  founder:{'@type':'Person',name:'Jordan Brooks',email:'jordan@ridgeworks.com'},
+ })+'</script>',website);
+ const merged=mergePublicContactEvidence([{url:website,...page}],website);
+ assert.equal(merged.namedContacts.length,1);
+ assert.equal(merged.namedContacts[0].name,'Jordan Brooks');
+ assert.equal(merged.namedContacts[0].email,'jordan@ridgeworks.com');
+ assert.equal(merged.emailEvidence[0].classification,'named_company_published');
+});
