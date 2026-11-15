@@ -6,16 +6,32 @@ const roleKey=role=>{
  r==='founder'||r==='co-founder'?'founder':
  r==='owner'||r==='proprietor'?'owner':r;
 };
-const host=url=>{try{return new URL(url).hostname.toLowerCase().replace(/^www\./,'')}catch{return ''}};
+const sourceUrl=value=>{
+ try{
+  const url=new URL(value);
+  // Credential-bearing source URLs or nonweb schemes are not public
+  // identity evidence; reject them rather than retaining unsafe links.
+  if(!['https:','http:'].includes(url.protocol)||url.username||url.password)return null;
+  return url;
+ }catch{return null}
+};
+const host=value=>sourceUrl(value)?.hostname.toLowerCase().replace(/^www\./,'')||'';
+
 export function reconcilePublicLeadership(claims,companyWebsite){
  const companyHost=host(companyWebsite),entries=new Map();
  for(const candidate of claims){
   if(!candidate||typeof candidate.name!=='string'||typeof candidate.role!=='string'||typeof candidate.source!=='string')continue;
   const name=candidate.name.replace(/\s+/g,' ').trim();
   if(name.length<4||name.length>90||!name.includes(' '))continue;
-  const sourceHost=host(candidate.source);
+  const parsed=sourceUrl(candidate.source);
+  if(!parsed)continue;
+  const sourceHost=parsed.hostname.toLowerCase().replace(/^www\./,'');
   const isOfficial=sourceHost===companyHost&&companyHost!=='';
-  const isWikidata=candidate.independentSource==='Wikidata'&&sourceHost==='wikidata.org';
+  // Wikidata's generic landing, search, and wiki pages do not support a
+  // leadership assertion. Require a canonical public entity identifier.
+  const isWikidata=candidate.independentSource==='Wikidata'&&sourceHost==='wikidata.org'&&
+   /^\/entity\/Q[1-9]\d*\/?$/.test(parsed.pathname)&&!parsed.search;
+
   if(!isOfficial&&!isWikidata)continue;
   const key=normalized(name)+'|'+roleKey(candidate.role);
   const prev=entries.get(key)||{...candidate,name,sources:[],evidencePublishers:[],sourceCount:0,corroboration:'single_public_source'};
