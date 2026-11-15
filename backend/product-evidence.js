@@ -70,7 +70,7 @@ export function observedCommerceControl(html){
  // An out-of-stock Add to Cart button inside a disabled fieldset is not a
  // verified working checkout, regardless of its otherwise persuasive label.
  const visible=visiblePublicMarkup(html);
- const document=visible.replace(/<fieldset\b(?=[^>]*\bdisabled(?:\s|=|>|\/))[^>]*>[\s\S]*?<\/fieldset\s*>/gi,'');
+ const document=visible.replace(/<fieldset\b(?=[^>]*\sdisabled(?:\s|=|>|\/))[^>]*>[\s\S]*?<\/fieldset\s*>/gi,'');
  const hidden=attrs=>/(?:^|\s)(?:hidden|disabled|inert)(?:\s|=|$)/i.test(attrs)||
   /\baria-(?:hidden|disabled)\s*=\s*["']?true(?=["'\s>]|$)/i.test(attrs)||
   /\bstyle\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(attrs);
