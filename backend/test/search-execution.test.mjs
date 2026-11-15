@@ -19,3 +19,32 @@ test('failed operations release slots and invalid inputs never call providers',a
  await assert.rejects(run({},'Accountants'),/valid city/);assert.equal(calls,0);
  await assert.rejects(run('Boston','Accountants'),/unavailable/);await assert.rejects(run('Boston','Accountants'),/unavailable/);assert.equal(calls,2);
 });
+
+test('casing and extra spaces share one bounded provider request',async()=>{
+ let calls=0,release;const gate=new Promise(resolve=>{release=resolve});
+ const run=createSearchRunner(async(area,niche)=>{calls++;await gate;return {elements:[{area,niche}]};});
+ const one=run(' BEL   AIR  ','Financial Advisors');
+ const two=run('bel air','financial advisors');
+ assert.equal(one,two,'equivalent niche/area searches should share in-flight work');
+ release();assert.equal((await one).elements[0].area,'bel air');assert.equal(calls,1);
+});
+
+test('cached outage evidence is isolated from caller mutations and each later request',async()=>{
+ let clock=0,requests=0;
+ const run=createSearchRunner(async()=>{requests++;return {
+  searchStatus:'provider_unavailable',elements:[{tags:{name:'Original business'}}],
+  sourceAgreement:['public_provider_timeout']
+ }},{now:()=>clock,unavailableTtlMs:1000});
+ const first=await run('10001','Financial advisors');
+ first.elements[0].tags.name='Poisoned';
+ first.sourceAgreement.push('fake_source');
+ clock=100;
+ const cached=await run('10001','financial advisors');
+ assert.equal(cached.cached,true);
+ assert.equal(cached.elements[0].tags.name,'Original business');
+ assert.deepEqual(cached.sourceAgreement,['public_provider_timeout']);
+ cached.elements.push({tags:{name:'Injected record'}});
+ const again=await run('10001','FINANCIAL ADVISORS');
+ assert.equal(again.elements.length,1);
+ assert.equal(requests,1,'outage cache prevents repeated provider calls');
+});
