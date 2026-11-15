@@ -25,11 +25,21 @@ const sameDomain=(a,b)=>{
 };
 const siteDomain=website=>new URL(website).hostname.toLowerCase().replace(/^www\./,'');
 const socialUrl=(value,source)=>{
- try{const u=new URL(entityText(value),source);if(u.protocol!=='https:'&&u.protocol!=='http:')return '';
- const host=u.hostname.toLowerCase();
- if(!SOCIAL_HOSTS.some(x=>host===x||host.endsWith('.'+x)))return '';
- if(!u.pathname||u.pathname==='/')return '';u.hash='';u.search='';
- return u.href;
+ try{
+  const u=new URL(entityText(value),source);
+  if(!['https:','http:'].includes(u.protocol)||u.username||u.password)return '';
+  const host=u.hostname.toLowerCase().replace(/^(?:www|m)\./,'');
+  if(!SOCIAL_HOSTS.includes(host))return '';
+  const parts=u.pathname.split('/').filter(Boolean);
+  if(!parts.length)return '';
+  const section=parts[0].toLowerCase();
+  // Share buttons, platform UI and individual posts are not business profiles.
+  if(/^(?:login|signup|register|share|sharer|sharer.php|intent|search|help|about|privacy|settings|feed|home|watch|shorts|reel|reels|stories|posts?|videos?|events?|explore|accounts|direct|dialog|plugins|hashtag|tags?|i|p|t)$/.test(section))return '';
+  if(host==='linkedin.com'&&(!['company','in','school','showcase'].includes(section)||parts.length<2))return '';
+  if(host==='youtube.com'&&!section.startsWith('@')&&(!['channel','c','user'].includes(section)||parts.length<2))return '';
+  if(host==='tiktok.com'&&!section.startsWith('@'))return '';
+  u.hash='';u.search='';
+  return u.href;
  }catch{return ''}
 };
 const isOrgType=value=>{
