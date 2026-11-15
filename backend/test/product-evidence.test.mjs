@@ -87,3 +87,8 @@ test('disabled fieldsets and aria-disabled shopping buttons never count as activ
  ),'Add to Cart','a real enabled buy control is still recognized');
  assert.equal(observedCommerceControl('<button aria-disabled="false">Buy Now</button>'),'Buy Now');
 });
+
+test('a fieldset with aria-disabled=false is not a native disabled fieldset',()=>{
+ assert.equal(observedCommerceControl('<fieldset aria-disabled="false"><button>Add to Cart</button></fieldset>'),'Add to Cart');
+ assert.equal(observedCommerceControl('<fieldset data-disabled="false"><button>Buy Now</button></fieldset>'),'Buy Now');
+});
