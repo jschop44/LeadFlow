@@ -13,7 +13,7 @@ export function createSearchRunner(search,{now=Date.now,unavailableTtlMs=15000,c
  },capacity);
  return (area,niche)=>{
   if(typeof area!=='string'||typeof niche!=='string'||area.trim().length<2||area.length>120||niche.length>80)return Promise.reject(Error('Enter a valid city, state or ZIP and business niche'));
-  const key=JSON.stringify([area.trim().toLowerCase().replace(/\s+/g,' '),niche.trim().toLowerCase().replace(/\s+/g,' ')]);
+  const key=JSON.stringify([area.trim().toLowerCase().replace(/\s+/g,' '),niche.trim().replace(/\s+/g,' ')]);
   const hit=unavailable.get(key);
   if(hit&&hit.until>now())return Promise.resolve({...structuredClone(hit.result),cached:true,retryAfterSeconds:Math.max(1,Math.ceil((hit.until-now())/1000))});
   unavailable.delete(key);return execute(key);
