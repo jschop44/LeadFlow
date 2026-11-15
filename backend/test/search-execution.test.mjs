@@ -23,7 +23,7 @@ test('failed operations release slots and invalid inputs never call providers',a
 test('equivalent area spellings and spaces share one bounded provider request',async()=>{
  let calls=0,release;const gate=new Promise(resolve=>{release=resolve});
  const run=createSearchRunner(async(area,niche)=>{calls++;await gate;return {elements:[{area,niche}]};});
- const one=run(' BEL   AIR  ','Financial Advisors');
+ const one=run(' BEL   AIR  ','Financial advisors');
  const two=run('bel air','Financial advisors');
  assert.equal(one,two,'equivalent niche/area searches should share in-flight work');
  release();assert.equal((await one).elements[0].area,'bel air');assert.equal(calls,1);
