@@ -66,9 +66,13 @@ export function supportedUSCatalogRecord(record){
  * or hidden/disabled controls is not evidence that checkout is available.
  */
 export function observedCommerceControl(html){
- const document=visiblePublicMarkup(html);
- const hidden=attrs=>/(?:^|\s)(?:hidden|disabled)(?:\s|=|$)/i.test(attrs)||
-  /\baria-hidden\s*=\s*["']?true/i.test(attrs)||
+ // Explicitly disabled form groups make their enclosed buttons non-actionable.
+ // An out-of-stock Add to Cart button inside a disabled fieldset is not a
+ // verified working checkout, regardless of its otherwise persuasive label.
+ const visible=visiblePublicMarkup(html);
+ const document=visible.replace(/<fieldset\b(?=[^>]*\sdisabled(?:\s|=|>|\/))[^>]*>[\s\S]*?<\/fieldset\s*>/gi,'');
+ const hidden=attrs=>/(?:^|\s)(?:hidden|disabled|inert)(?:\s|=|$)/i.test(attrs)||
+  /\baria-(?:hidden|disabled)\s*=\s*["']?true(?=["'\s>]|$)/i.test(attrs)||
   /\bstyle\s*=\s*["'][^"']*(?:display\s*:\s*none|visibility\s*:\s*hidden)/i.test(attrs);
  const kind=value=>{
   const normalized=normalizeProductWords(value.replace(/&(?:nbsp|amp);|&#160;/gi,' '));

@@ -71,3 +71,24 @@ test('a checkout nested in hidden source regions is not an observed active contr
   '<div hidden><button>Buy Now</button></div><main><button>Add to Bag</button></main>'
  ),'Add to Bag');
 });
+
+test('disabled fieldsets and aria-disabled shopping buttons never count as active checkout',()=>{
+ for(const html of [
+  '<fieldset disabled><button>Add to Cart</button></fieldset>',
+  '<fieldset class="sold-out" disabled="disabled"><input type="submit" value="Buy Now"></fieldset>',
+  '<button aria-disabled="true">Buy Now</button>',
+  '<input type="button" aria-disabled="true" value="Add to Bag">',
+  '<button inert>Buy Now</button>',
+ ]){
+  assert.equal(observedCommerceControl(html),undefined,'Unavailable shopping control: '+html);
+ }
+ assert.equal(observedCommerceControl(
+  '<fieldset disabled><button>Buy Now</button></fieldset><main><button>Add to Cart</button></main>'
+ ),'Add to Cart','a real enabled buy control is still recognized');
+ assert.equal(observedCommerceControl('<button aria-disabled="false">Buy Now</button>'),'Buy Now');
+});
+
+test('a fieldset with aria-disabled=false is not a native disabled fieldset',()=>{
+ assert.equal(observedCommerceControl('<fieldset aria-disabled="false"><button>Add to Cart</button></fieldset>'),'Add to Cart');
+ assert.equal(observedCommerceControl('<fieldset data-disabled="false"><button>Buy Now</button></fieldset>'),'Buy Now');
+});
