@@ -126,3 +126,42 @@ test('matching named company structured-data evidence is retained and normalized
  assert.equal(merged.namedContacts[0].email,'jordan@ridgeworks.com');
  assert.equal(merged.emailEvidence[0].classification,'named_company_published');
 });
+
+
+test('published social share buttons and individual media are not business profile evidence',()=>{
+ const html=[
+  '<a href="https://www.linkedin.com/sharing/share-offsite/?url=https://ridgeworks.com/">Share</a>',
+  '<a href="https://www.facebook.com/sharer/sharer.php?u=https://ridgeworks.com">Share</a>',
+  '<a href="https://x.com/intent/tweet?text=our-company">Tweet</a>',
+  '<a href="https://www.youtube.com/watch?v=123456">Watch</a>',
+  '<a href="https://www.instagram.com/p/ABCDEFGHIJ/">Post</a>',
+  '<a href="https://www.tiktok.com/t/ABC123">Share</a>',
+  '<a href="https://www.linkedin.com/login">Login</a>',
+  '<a href="https://www.linkedin.com/company/ridgeworks/">Our LinkedIn</a>',
+  '<a href="https://www.facebook.com/ridgeworks/">Our Facebook</a>',
+  '<a href="https://www.instagram.com/ridgeworks/">Our Instagram</a>',
+  '<a href="https://www.youtube.com/@ridgeworks">Our YouTube</a>',
+  '<a href="https://www.tiktok.com/@ridgeworks">Our TikTok</a>',
+ ].join('');
+ const result=extractPublicContacts(html,website);
+ assert.equal(result.socials.length,5,'only five account/profile URLs are retained');
+ assert.ok(result.socials.some(x=>x.includes('/company/ridgeworks/')));
+ assert.ok(result.socials.some(x=>x.includes('/@ridgeworks')));
+ assert.ok(result.socials.every(x=>!/(?:\/sharer|\/intent|\/watch|\/p\/|\/t\/|\/login)/.test(x)));
+});
+
+test('social URLs from company schema cannot inflate contact evidence with share links',()=>{
+ const schema=JSON.stringify({'@type':'Organization',url:website,sameAs:[
+  'https://facebook.com/sharer.php?u=https://ridgeworks.com/',
+  'https://www.linkedin.com/company/ridgeworks/',
+  'https://www.youtube.com/watch?v=123',
+  'https://www.instagram.com/ridgeworks/',
+ ]});
+ const parsed=extractPublicContacts('<script type="application/ld+json">'+schema+'</script>',website);
+ assert.deepEqual(parsed.socials,[
+  'https://www.linkedin.com/company/ridgeworks/',
+  'https://www.instagram.com/ridgeworks/',
+ ]);
+ const merged=mergePublicContactEvidence([{url:website,...parsed}],website);
+ assert.deepEqual(merged.socials,parsed.socials);
+});
