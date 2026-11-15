@@ -1,0 +1,39 @@
+name: Verify LeadFlow live Render revision
+on:
+  workflow_run:
+    workflows: ["Publish verified container"]
+    types: [completed]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  exact-live:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'workflow_run' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Compare the running Render revision and private route protection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          EXPECTED_SHA="$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)"
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA"
+          node scripts/verify-live-release.mjs "$EXPECTED_SHA"
+      - name: Explain exact live revision requirement
+        if: failure()
+        run: |
+          echo "Container publication or Render accepting a hook does not establish live deployment." >> "$GITHUB_STEP_SUMMARY"
+          echo "Confirm the Render service uses the verified image and serves the expected release SHA." >> "$GITHUB_STEP_SUMMARY"
