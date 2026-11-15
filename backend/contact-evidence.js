@@ -128,8 +128,17 @@ export function mergePublicContactEvidence(sources,website){
   for(const p of page.phones||[])if(cleanPhone(p))phones.add(cleanPhone(p));
   for(const social of page.socials||[])if(socialUrl(social,page.url))socials.add(socialUrl(social,page.url));
   for(const contact of page.namedContacts||[]){
-   if(!contact?.email||!saneEmail(contact.email)||!contact?.name||!contact?.role)continue;
-   if(!people.some(x=>x.name===contact.name&&x.email===contact.email))people.push({...contact});
+   const normalized=saneEmail(contact?.email);
+   if(!normalized||!contact?.name||!contact?.role)continue;
+   // Names must be backed by the matching, company-published structured-data
+   // email claim on the *same retrieved page*. A separately supplied name
+   // record cannot establish a business owner or employee association.
+   const supported=(page.emailEvidence||[]).some(item=>
+    item.method==='named_company_jsonld'&&saneEmail(item.email)===normalized&&
+    item.person===contact.name&&item.role===contact.role);
+   if(!supported)continue;
+   if(!people.some(x=>x.name===contact.name&&saneEmail(x.email)===normalized))
+    people.push({...contact,email:normalized});
   }
   for(const item of page.emailEvidence||[]){
    const normalized=saneEmail(item.email);if(!normalized)continue;
