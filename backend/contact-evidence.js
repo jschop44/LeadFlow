@@ -35,9 +35,16 @@ const socialUrl=(value,source)=>{
   const section=parts[0].toLowerCase();
   // Share buttons, platform UI and individual posts are not business profiles.
   if(/^(?:login|signup|register|share|sharer|sharer.php|intent|search|help|about|privacy|settings|feed|home|watch|shorts|reel|reels|stories|posts?|videos?|events?|explore|accounts|direct|dialog|plugins|hashtag|tags?|i|p|t)$/.test(section))return '';
-  if(host==='linkedin.com'&&(!['company','in','school','showcase'].includes(section)||parts.length<2))return '';
-  if(host==='youtube.com'&&!section.startsWith('@')&&(!['channel','c','user'].includes(section)||parts.length<2))return '';
-  if(host==='tiktok.com'&&!section.startsWith('@'))return '';
+  // A post can start with a perfectly legitimate profile path, e.g.
+  // /brand/status/123 or /company/brand/posts/123. Reject those instead
+  // of promoting individual social content into the company's profile list.
+  if(host==='linkedin.com'&&(!['company','in','school','showcase'].includes(section)||parts.length!==2))return '';
+  if(host==='youtube.com'){
+   if(section.startsWith('@')?parts.length!==1:
+      !['channel','c','user'].includes(section)||parts.length!==2)return '';
+  }else if(host==='tiktok.com'){
+   if(!section.startsWith('@')||parts.length!==1)return '';
+  }else if(host!=='linkedin.com'&&parts.length!==1)return '';
   u.hash='';u.search='';
   return u.href;
  }catch{return ''}
