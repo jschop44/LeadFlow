@@ -165,3 +165,41 @@ test('social URLs from company schema cannot inflate contact evidence with share
  const merged=mergePublicContactEvidence([{url:website,...parsed}],website);
  assert.deepEqual(merged.socials,parsed.socials);
 });
+
+test('nested account posts and videos are not elevated to business social profiles',()=>{
+ const posts=[
+  'https://x.com/ridgeworks/status/123456',
+  'https://twitter.com/ridgeworks/status/123456',
+  'https://www.facebook.com/ridgeworks/posts/123456',
+  'https://www.instagram.com/ridgeworks/reel/ABC123',
+  'https://www.instagram.com/ridgeworks/p/ABC123',
+  'https://www.linkedin.com/company/ridgeworks/posts/123456',
+  'https://www.youtube.com/@ridgeworks/shorts',
+  'https://www.youtube.com/channel/UC123/videos',
+  'https://www.tiktok.com/@ridgeworks/video/123456'
+ ];
+ const profiles=[
+  'https://x.com/ridgeworks',
+  'https://www.facebook.com/ridgeworks/',
+  'https://www.instagram.com/ridgeworks/',
+  'https://www.linkedin.com/company/ridgeworks/',
+  'https://www.youtube.com/@ridgeworks',
+  'https://www.youtube.com/channel/UC123',
+  'https://www.tiktok.com/@ridgeworks'
+ ];
+ const page=posts.concat(profiles).map(url=>'<a href="'+url+'">Published social link</a>').join('');
+ const result=extractPublicContacts(page,website);
+ assert.deepEqual(result.socials,profiles);
+ assert.equal(result.socials.some(s=>posts.includes(s)),false);
+});
+
+test('nested post URLs in published Organization sameAs never become company account evidence',()=>{
+ const sameAs=[
+  'https://x.com/ridgeworks/status/123456',
+  'https://www.linkedin.com/company/ridgeworks/posts/123',
+  'https://www.facebook.com/ridgeworks/',
+ ];
+ const schema=JSON.stringify({'@type':'Organization',url:website,sameAs});
+ const result=extractPublicContacts('<script type="application/ld+json">'+schema+'</script>',website);
+ assert.deepEqual(result.socials,['https://www.facebook.com/ridgeworks/']);
+});
